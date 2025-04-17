@@ -11,7 +11,7 @@ class CCMCalculator {
   ///   [targetRGB]：Matrix，形狀為 (18,3)，每一列為標準色卡 RGB
   /// 輸出：
   ///   Map<String, Matrix>，包含
-  ///     'olsCCM'：OLS 計算得到的 4x3 CCM 矩陣
+  ///     'olsCCM'：OLS 計算得到的 3x3 CCM 矩陣
   ///     'olsError'：校正後的誤差 (18x3)
   Map<String, Matrix> calculateCCMs(Matrix deviceRGB, Matrix targetRGB) {
     final olsCCM = _calculateOLSCCM(deviceRGB, targetRGB);
@@ -19,30 +19,19 @@ class CCMCalculator {
     return {'olsCCM': olsCCM, 'olsError': olsError};
   }
 
-  /// OLS CCM 計算 (加 bias)
+  /// OLS CCM 計算 (不加 bias，3x3)
   /// 
   /// 輸入：
   ///   [deviceRGB]：Matrix (18x3)
   ///   [targetRGB]：Matrix (18x3)
   /// 輸出：
-  ///   Matrix (4x3)，OLS 計算得到的 CCM
+  ///   Matrix (3x3)，OLS 計算得到的 CCM
   Matrix _calculateOLSCCM(Matrix deviceRGB, Matrix targetRGB) {
-    final deviceRGBWithBias = _addBiasColumn(deviceRGB);
-    return (deviceRGBWithBias.transpose() * deviceRGBWithBias)
+    // OLS: (X^T X)^-1 X^T Y
+    return (deviceRGB.transpose() * deviceRGB)
         .inverse() *
-        deviceRGBWithBias.transpose() *
+        deviceRGB.transpose() *
         targetRGB;
-  }
-
-  /// 加 bias column (左側加一欄 1)
-  /// 
-  /// 輸入：
-  ///   [matrix]：Matrix (Nx3)
-  /// 輸出：
-  ///   Matrix (Nx4)，左側多一欄 1
-  Matrix _addBiasColumn(Matrix matrix) {
-    final dataWithBias = matrix.rows.map((row) => [1.0, ...row]).toList();
-    return Matrix.fromList(dataWithBias);
   }
 
   /// 計算 CCM 校正後誤差
@@ -50,12 +39,11 @@ class CCMCalculator {
   /// 輸入：
   ///   [deviceRGB]：Matrix (18x3)
   ///   [targetRGB]：Matrix (18x3)
-  ///   [ccm]：Matrix (4x3)
+  ///   [ccm]：Matrix (3x3)
   /// 輸出：
   ///   Matrix (18x3)，校正後誤差
   Matrix _calculateError(Matrix deviceRGB, Matrix targetRGB, Matrix ccm) {
-    final deviceRGBWithBias = _addBiasColumn(deviceRGB);
-    final predictedRGB = (deviceRGBWithBias * ccm).mapElements((v) => v.clamp(0.0, 255.0));
+    final predictedRGB = (deviceRGB * ccm).mapElements((v) => v.clamp(0.0, 255.0));
     return targetRGB - predictedRGB;
   }
 }
@@ -117,9 +105,8 @@ class _CcmScreenState extends State<CcmScreen> {
     _olsCCM = results['olsCCM'];
     _olsError = results['olsError'];
     _originalError = calculateOriginalError(deviceRGB, targetRGB);
-    final deviceRGBWithBias = calculator._addBiasColumn(deviceRGB);
     _predictedRGB = (_olsCCM != null)
-        ? (deviceRGBWithBias * _olsCCM!).mapElements((v) => v.clamp(0.0, 255.0))
+        ? (deviceRGB * _olsCCM!).mapElements((v) => v.clamp(0.0, 255.0))
         : null;
   }
 

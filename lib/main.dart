@@ -9,7 +9,6 @@ import 'full_screen_crop.dart';
 import 'main_rect.dart';
 import 'realtime_analyze.dart';
 
-
 void main() {
   runApp(const MyApp());
 }
@@ -68,7 +67,8 @@ class _MyHomePageState extends State<MyHomePage> {
       } else if (message is cv.Rect) {
         setState(() {
           _selectedRect = message;
-          rgbLog += "已選取矩形: ${_selectedRect!.x}, ${_selectedRect!.y}, ${_selectedRect!.width}x${_selectedRect!.height}\n";
+          rgbLog +=
+              "已選取矩形: ${_selectedRect!.x}, ${_selectedRect!.y}, ${_selectedRect!.width}x${_selectedRect!.height}\n";
           _drawRectangleOnFirstFrame();
         });
       }
@@ -84,7 +84,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _pickVideo() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.video);
+    FilePickerResult? result =
+        await FilePicker.platform.pickFiles(type: FileType.video);
     if (result != null) {
       final file = result.files.single;
       final path = file.path;
@@ -144,7 +145,8 @@ class _MyHomePageState extends State<MyHomePage> {
       if (selectedRect is cv.Rect) {
         setState(() {
           _selectedRect = selectedRect;
-          rgbLog += "已選取矩形: ${_selectedRect!.x}, ${_selectedRect!.y}, ${_selectedRect!.width}x${_selectedRect!.height}\n";
+          rgbLog +=
+              "已選取矩形: ${_selectedRect!.x}, ${_selectedRect!.y}, ${_selectedRect!.width}x${_selectedRect!.height}\n";
           _drawRectangleOnFirstFrame();
         });
       }
@@ -262,15 +264,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
       final msg = "第 $sec 秒 RGB: R=$r, G=$g, B=$b";
 
-      if (sec == durationSeconds - 1) {
-        cv.rectangle(frame, _selectedRect!, cv.Scalar(0, 255, 0, 255), thickness: 2);
-        final frameBytes = cv.imencode(".png", frame).$2;
-        setState(() {
-          _currentFrameBytes = frameBytes;
-        });
-      }
+      // if (sec == durationSeconds - 1) {
+      //   cv.rectangle(frame, _selectedRect!, cv.Scalar(0, 255, 0, 255), thickness: 2);
+      //   final frameBytes = cv.imencode(".png", frame).$2;
+      //   setState(() {
+      //     _currentFrameBytes = frameBytes;
+      //   });
+      // }
 
-      frame.dispose();
+      // frame.dispose();
 
       setState(() {
         rgbLog += "$msg\n";
@@ -283,7 +285,6 @@ class _MyHomePageState extends State<MyHomePage> {
       rgbLog += "✅ 分析完成，共 $durationSeconds 秒資料\n";
     });
   }
-
 
   void _autoCrop() async {
     if (_firstFrameBytes == null) {
@@ -298,7 +299,6 @@ class _MyHomePageState extends State<MyHomePage> {
     // 定義所有資源變數，方便在 finally 中統一釋放
     cv.Mat? srcMat, hsvMat, mask, openedMask, kernel;
     //List<cv.Mat>? contours;
-  
 
     try {
       // 解碼第一幀
@@ -320,10 +320,9 @@ class _MyHomePageState extends State<MyHomePage> {
       final upperMat = cv.Mat.fromScalar(1, 3, cv.MatType.CV_8UC3, upperScalar);
       cv.inRange(hsvMat, lowerMat, upperMat, dst: mask);
 
-
       lowerMat.dispose();
       upperMat.dispose();
-      
+
       // 創建結構元素並進行形態學開運算
       final kernelSize = (5, 5);
       kernel = cv.getStructuringElement(cv.MORPH_RECT, kernelSize);
@@ -337,7 +336,8 @@ class _MyHomePageState extends State<MyHomePage> {
       }
 
       // 尋找輪廓
-      final contoursResult = cv.findContours(openedMask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      final contoursResult =
+          cv.findContours(openedMask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
       final contours = contoursResult.$1;
 
       // 找到面積最大的輪廓
@@ -352,22 +352,19 @@ class _MyHomePageState extends State<MyHomePage> {
           largestRect = cv.boundingRect(contour);
         }
       }
-      
-    
 
       // for (final contour in contours) {
       //   contour.dispose();
       // }
 
-      contours.dispose();    
-
-
+      contours.dispose();
 
       // 根據結果更新狀態
       if (largestRect != null) {
         setState(() {
           _selectedRect = largestRect;
-          rgbLog += "已自動選取矩形: ${_selectedRect!.x}, ${_selectedRect!.y}, ${_selectedRect!.width}x${_selectedRect!.height}\n";
+          rgbLog +=
+              "已自動選取矩形: ${_selectedRect!.x}, ${_selectedRect!.y}, ${_selectedRect!.width}x${_selectedRect!.height}\n";
           _drawRectangleOnFirstFrame();
         });
       } else {
@@ -389,7 +386,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -404,52 +400,58 @@ class _MyHomePageState extends State<MyHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(onPressed: _pickVideo, child: const Text("選擇影片")),
+                ElevatedButton(
+                    onPressed: _pickVideo, child: const Text("選擇影片")),
                 const SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: () => _navigateToCropScreen(context),
                   child: const Text("指定矩形"),
                 ),
                 const SizedBox(width: 10),
-                ElevatedButton(onPressed: _startAnalysis, child: const Text("開始分析")),
-                
+                ElevatedButton(
+                    onPressed: _startAnalysis, child: const Text("開始分析")),
               ],
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(onPressed: _autoCrop, child: const Text("自動選取")),
-                const SizedBox(width: 10),
-                ElevatedButton(onPressed: _analyzeVideoEverySecond, child: const Text("開始分析整部影片")),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MainRectPage()),
-                    );
-                  },
-                  child: const Text("校正"),
-                ),
-              ]
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                
-                const SizedBox(width: 10),
-                    ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RealtimeAnalyze()),
-                    );
-                  },
-                  child: const Text("即時分析"),
-                )
-              ]
-
-            ),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              ElevatedButton(onPressed: _autoCrop, child: const Text("自動選取")),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                  onPressed: _analyzeVideoEverySecond,
+                  child: const Text("開始分析整部影片")),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const MainRectPage()),
+                  );
+                },
+                child: const Text("校正"),
+              ),
+            ]),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const RealtimeAnalyze()),
+                  );
+                },
+                child: const Text("即時分析"),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    rgbLog = "";
+                  });
+                },
+                child: const Text("清除紀錄"),
+              ),
+            ]),
             Text("寬: $width, 高: $height, FPS: $fps, 後端: $backend"),
             ExtendedText(
               "來源: $src",
@@ -464,8 +466,10 @@ class _MyHomePageState extends State<MyHomePage> {
               Column(
                 children: [
                   _firstFrameWithRectBytes != null
-                      ? Image.memory(_firstFrameWithRectBytes!, width: 300, fit: BoxFit.contain)
-                      : Image.memory(_firstFrameBytes!, width: 300, fit: BoxFit.contain),
+                      ? Image.memory(_firstFrameWithRectBytes!,
+                          width: 300, fit: BoxFit.contain)
+                      : Image.memory(_firstFrameBytes!,
+                          width: 300, fit: BoxFit.contain),
                   const SizedBox(height: 5),
                   Text("第一幀解析度: ${_firstFrameWidth}x$_firstFrameHeight"),
                 ],
@@ -474,7 +478,8 @@ class _MyHomePageState extends State<MyHomePage> {
               const Placeholder(fallbackWidth: 300, fallbackHeight: 200),
             const SizedBox(height: 10),
             _currentFrameBytes != null
-                ? Image.memory(_currentFrameBytes!, width: 300, fit: BoxFit.contain)
+                ? Image.memory(_currentFrameBytes!,
+                    width: 300, fit: BoxFit.contain)
                 : const SizedBox.shrink(),
             const SizedBox(height: 10),
             Container(

@@ -1,4 +1,7 @@
 import 'dart:typed_data';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:opencv_dart/opencv.dart' as cv;
@@ -18,6 +21,8 @@ class _MyAppState extends State<MainRectPage> {
   Uint8List? processedImageBytes;
   String processingLog = "";
   List<List<double>> detectedColors = []; // 存放自動偵測到的色塊平均顏色
+  String? lastCCMTime;
+  Matrix? lastCCM;
 
   /// 自動偵測矩形並取得每個色塊的平均顏色
   /// 
@@ -168,21 +173,79 @@ class _MyAppState extends State<MainRectPage> {
     final olsCCM = results['olsCCM'];
     final olsError = results['olsError'];
 
-    /// 將矩陣格式化為字串
-    /// 
-    /// 輸入：[matrix]：Matrix?，要格式化的矩陣
-    /// 輸出：String，格式化後的多行字串
-    String formatMatrix(Matrix? matrix) {
-      if (matrix == null) return 'N/A';
-      return matrix.rows
-          .map((row) => row.map((e) => e.toStringAsFixed(4)).join(', '))
-          .join('\n');
-    }
-
     setState(() {
       processingLog += "\n=== OLS CCM ===\n${formatMatrix(olsCCM)}";
       processingLog += "\n=== OLS Error ===\n${formatMatrix(olsError)}";
     });
+    // 新增：儲存 CCM
+    if (olsCCM != null) {
+      saveCCMToJson(olsCCM);
+    }
+  }
+
+  /// 將矩陣格式化為字串
+  /// 
+  /// 輸入：[matrix]：Matrix?，要格式化的矩陣
+  /// 輸出：String，格式化後的多行字串
+  String formatMatrix(Matrix? matrix) {
+    if (matrix == null) return 'N/A';
+    return matrix.rows
+        .map((row) => row.map((e) => e.toStringAsFixed(4)).join(', '))
+        .join('\n');
+  }
+
+  // 儲存 CCM 到 JSON
+  Future<void> saveCCMToJson(Matrix ccm) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      // 確保資料夾存在
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+      final file = File('${directory.path}/ccm_result.json');
+      final now = DateTime.now();
+      final data = {
+        'time': now.toIso8601String(),
+        'ccm': ccm.rows.map((row) => row.toList()).toList(), // 這裡做轉換
+      };
+      await file.writeAsString(jsonEncode(data));
+      setState(() {
+        lastCCMTime = now.toString();
+        lastCCM = ccm;
+        processingLog += "\nCCM 已儲存於 ${file.path}";
+      });
+    } catch (e) {
+      setState(() {
+        print("儲存 CCM 失敗: $e");
+        processingLog += "\nCCM 儲存失敗: $e";
+      });
+    }
+  }
+  // 讀取 CCM 從 JSON
+  Future<void> loadCCMFromJson() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/ccm_result.json');
+      if (!await file.exists()) {
+        setState(() {
+          processingLog += "\n找不到 CCM 檔案";
+        });
+        return;
+      }
+      final content = await file.readAsString();
+      final data = jsonDecode(content);
+      final ccmRows = (data['ccm'] as List).map<List<double>>((row) => (row as List).map((e) => (e as num).toDouble()).toList()).toList();
+      final ccmMatrix = Matrix.fromList(ccmRows);
+      setState(() {
+        lastCCMTime = data['time'];
+        lastCCM = ccmMatrix;
+        processingLog += "\n已讀取 CCM（時間：${lastCCMTime ?? ''}）\n${formatMatrix(ccmMatrix)}";
+      });
+    } catch (e) {
+      setState(() {
+        processingLog += "\n讀取 CCM 失敗: $e";
+      });
+    }
   }
 
   @override
@@ -215,6 +278,32 @@ class _MyAppState extends State<MainRectPage> {
                   ),
                 ],
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: loadCCMFromJson,
+                    child: const Text("讀取CCM"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        originalImageBytes = null;
+                        processedImageBytes = null;
+                        detectedColors.clear();
+                        processingLog = "";
+                      });
+                    },
+                    child: const Text("清除"),
+                  ),
+                ],
+
+              ),
+              if (lastCCMTime != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text("上次CCM時間: $lastCCMTime", style: const TextStyle(color: Colors.green)),
+                ),
               const SizedBox(height: 10),
               Expanded(
                 flex: 3,
