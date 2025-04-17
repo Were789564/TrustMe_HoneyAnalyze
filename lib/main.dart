@@ -7,7 +7,7 @@ import 'package:opencv_dart/opencv_dart.dart' as cv;
 import 'package:file_picker/file_picker.dart';
 import 'full_screen_crop.dart';
 import 'main_rect.dart';
-
+import 'realtime_analyze.dart';
 
 
 void main() {
@@ -432,6 +432,23 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: const Text("校正"),
                 ),
               ]
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                
+                const SizedBox(width: 10),
+                    ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RealtimeAnalyze()),
+                    );
+                  },
+                  child: const Text("即時分析"),
+                )
+              ]
+
             ),
             Text("寬: $width, 高: $height, FPS: $fps, 後端: $backend"),
             ExtendedText(

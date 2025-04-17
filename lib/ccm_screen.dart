@@ -5,9 +5,14 @@ import 'package:ml_linalg/linalg.dart';
 /// CCM 計算工具類（可在其他檔案直接呼叫）
 class CCMCalculator {
   /// 計算 OLS CCM 與誤差
-  /// [deviceRGB]：Matrix(18x3) 實際偵測色塊
-  /// [targetRGB]：Matrix(18x3) 標準色卡
-  /// 回傳 {'olsCCM': Matrix, 'olsError': Matrix}
+  /// 
+  /// 輸入：
+  ///   [deviceRGB]：Matrix，形狀為 (18,3)，每一列為偵測到的色塊 RGB
+  ///   [targetRGB]：Matrix，形狀為 (18,3)，每一列為標準色卡 RGB
+  /// 輸出：
+  ///   Map<String, Matrix>，包含
+  ///     'olsCCM'：OLS 計算得到的 4x3 CCM 矩陣
+  ///     'olsError'：校正後的誤差 (18x3)
   Map<String, Matrix> calculateCCMs(Matrix deviceRGB, Matrix targetRGB) {
     final olsCCM = _calculateOLSCCM(deviceRGB, targetRGB);
     final olsError = _calculateError(deviceRGB, targetRGB, olsCCM);
@@ -15,6 +20,12 @@ class CCMCalculator {
   }
 
   /// OLS CCM 計算 (加 bias)
+  /// 
+  /// 輸入：
+  ///   [deviceRGB]：Matrix (18x3)
+  ///   [targetRGB]：Matrix (18x3)
+  /// 輸出：
+  ///   Matrix (4x3)，OLS 計算得到的 CCM
   Matrix _calculateOLSCCM(Matrix deviceRGB, Matrix targetRGB) {
     final deviceRGBWithBias = _addBiasColumn(deviceRGB);
     return (deviceRGBWithBias.transpose() * deviceRGBWithBias)
@@ -24,12 +35,24 @@ class CCMCalculator {
   }
 
   /// 加 bias column (左側加一欄 1)
+  /// 
+  /// 輸入：
+  ///   [matrix]：Matrix (Nx3)
+  /// 輸出：
+  ///   Matrix (Nx4)，左側多一欄 1
   Matrix _addBiasColumn(Matrix matrix) {
     final dataWithBias = matrix.rows.map((row) => [1.0, ...row]).toList();
     return Matrix.fromList(dataWithBias);
   }
 
   /// 計算 CCM 校正後誤差
+  /// 
+  /// 輸入：
+  ///   [deviceRGB]：Matrix (18x3)
+  ///   [targetRGB]：Matrix (18x3)
+  ///   [ccm]：Matrix (4x3)
+  /// 輸出：
+  ///   Matrix (18x3)，校正後誤差
   Matrix _calculateError(Matrix deviceRGB, Matrix targetRGB, Matrix ccm) {
     final deviceRGBWithBias = _addBiasColumn(deviceRGB);
     final predictedRGB = (deviceRGBWithBias * ccm).mapElements((v) => v.clamp(0.0, 255.0));
@@ -39,9 +62,12 @@ class CCMCalculator {
 
 /// CCM 計算與顯示頁面（只保留顯示與互動）
 class CcmScreen extends StatefulWidget {
+  /// deviceRGBData: List<List<double>>，每一列為偵測到的色塊 RGB
+  /// targetRGBData: List<List<double>>，每一列為標準色卡 RGB
+  const CcmScreen({super.key, required this.deviceRGBData, required this.targetRGBData});
+
   final List<List<double>> deviceRGBData;
   final List<List<double>> targetRGBData;
-  const CcmScreen({super.key, required this.deviceRGBData, required this.targetRGBData});
 
   @override
   State<CcmScreen> createState() => _CcmScreenState();
@@ -51,6 +77,12 @@ class _CcmScreenState extends State<CcmScreen> {
   Matrix? _olsCCM, _olsError, _originalError, _predictedRGB;
 
   /// 格式化矩陣為字串
+  /// 
+  /// 輸入：
+  ///   [matrix]：Matrix?，要格式化的矩陣
+  ///   [maxRows]：int，最多顯示幾列（預設20）
+  /// 輸出：
+  ///   String，多行字串
   String formatMatrix(Matrix? matrix, [int maxRows = 20]) {
     if (matrix == null) return 'N/A';
     return List.generate(
@@ -60,6 +92,12 @@ class _CcmScreenState extends State<CcmScreen> {
   }
 
   /// 計算原始 RMSE 誤差
+  /// 
+  /// 輸入：
+  ///   [deviceRGB]：Matrix (18x3)
+  ///   [targetRGB]：Matrix (18x3)
+  /// 輸出：
+  ///   Matrix (18x1)，每一列為該色塊的 RMSE
   Matrix calculateOriginalError(Matrix deviceRGB, Matrix targetRGB) {
     return Matrix.fromList(List.generate(deviceRGB.rowCount, (i) {
       final r = targetRGB[i][0] - deviceRGB[i][0];

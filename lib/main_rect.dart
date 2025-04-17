@@ -20,8 +20,14 @@ class _MyAppState extends State<MainRectPage> {
   List<List<double>> detectedColors = []; // 存放自動偵測到的色塊平均顏色
 
   /// 自動偵測矩形並取得每個色塊的平均顏色
-  /// [inputMat] : cv.Mat 輸入影像
-  /// return: (cv.Mat 處理後影像, List<List<double>> 色塊平均顏色, String log)
+  /// 
+  /// 輸入：
+  ///   [inputMat] : cv.Mat，輸入的彩色影像
+  /// 輸出：
+  ///   (cv.Mat 處理後影像, List<List<double>> 色塊平均顏色, String log)
+  ///   - 處理後影像（已畫出偵測到的矩形）
+  ///   - 色塊平均顏色（每個色塊的 [R, G, B]）
+  ///   - 偵測過程的日誌字串
   Future<(cv.Mat, List<List<double>>, String)> detectRectanglesAndColorsAsync(cv.Mat inputMat) async {
     final outputMat = inputMat.clone();
     final StringBuffer logBuffer = StringBuffer();
@@ -79,8 +85,11 @@ class _MyAppState extends State<MainRectPage> {
   }
 
   /// 載入圖片並自動偵測色塊
-  /// [path]: String 圖片路徑
-  /// 無回傳值，會更新狀態
+  /// 
+  /// 輸入：
+  ///   [path]: String，圖片檔案路徑
+  /// 輸出：
+  ///   無（直接更新畫面狀態，包括原圖、處理後圖、色塊顏色、log）
   Future<void> processImageFromPath(String path) async {
     setState(() {
       processingLog = "Loading image...";
@@ -114,7 +123,13 @@ class _MyAppState extends State<MainRectPage> {
   }
 
   /// 建立CCM，直接用 detectedColors 陣列與標準色卡值，並顯示在log
-  /// 無輸入，無回傳，結果顯示於 processingLog
+  /// 
+  /// 輸入：無（直接取用 detectedColors 狀態）
+  /// 輸出：無（結果顯示於 processingLog 狀態）
+  /// 流程：
+  ///   1. 若色塊數不足18，顯示提示
+  ///   2. 計算 OLS CCM 與誤差
+  ///   3. 將 CCM 與誤差格式化後寫入 processingLog
   void buildCCM() {
     if (detectedColors.length != 18) {
       setState(() {
@@ -123,11 +138,26 @@ class _MyAppState extends State<MainRectPage> {
       return;
     }
 
-    // 標準色卡的RGB值（請依實際色卡順序填寫）
+    // 標準色卡的RGB值
     List<List<double>> standardColors = [
-      [115, 82, 68], [194, 150, 130], [98, 122, 157], [87, 108, 67], [133, 128, 177], [103, 189, 170],
-      [214, 126, 44], [80, 91, 166], [193, 90, 99], [94, 60, 108], [157, 188, 64], [224, 163, 46],
-      [56, 61, 150], [70, 148, 73], [175, 54, 60], [231, 199, 31], [187, 86, 149], [8, 133, 161]
+      [115, 82, 68],   // 1. dark skin    
+      [194, 150, 130], // 2. light skin
+      [98, 122, 157],  // 3. blue sky
+      [87, 108, 67],   // 4. foliage
+      [133, 128, 177], // 5. blue flower
+      [103, 189, 170], // 6. bluish green
+      [214, 126, 44],  // 7. orange
+      [80, 91, 166],   // 8. purplish blue
+      [193, 90, 99],   // 9. moderate red
+      [94, 60, 108],   // 10. purple
+      [157, 188, 64],  // 11. yellow green
+      [224, 163, 46],  // 12. orange yellow
+      [56, 61, 150],   // 13. blue
+      [70, 148, 73],   // 14. green
+      [175, 54, 60],   // 15. red
+      [231, 199, 31],  // 16. yellow
+      [187, 86, 149],  // 17. magenta
+      [8, 133, 161],   // 18. cyan
     ];
 
     final controller = CCMCalculator();
@@ -138,7 +168,10 @@ class _MyAppState extends State<MainRectPage> {
     final olsCCM = results['olsCCM'];
     final olsError = results['olsError'];
 
-    // 格式化矩陣
+    /// 將矩陣格式化為字串
+    /// 
+    /// 輸入：[matrix]：Matrix?，要格式化的矩陣
+    /// 輸出：String，格式化後的多行字串
     String formatMatrix(Matrix? matrix) {
       if (matrix == null) return 'N/A';
       return matrix.rows
