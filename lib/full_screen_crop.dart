@@ -64,10 +64,21 @@ class _FullScreenCropState extends State<FullScreenCrop> {
         ),
       ),
       body: Visibility(
-        visible: widget.imageBytes.isNotEmpty && !_isProcessing, // 注意這裡的判斷
+        visible: widget.imageBytes.isNotEmpty && !_isProcessing,
+        replacement: const Center(child: CircularProgressIndicator()), // 注意這裡的判斷
         child: widget.imageBytes.isNotEmpty
             ? Visibility(
                 visible: _croppedData == null,
+                replacement: _croppedData != null
+                    ? SizedBox(
+                        height: double.infinity,
+                        width: double.infinity,
+                        child: Image.memory(
+                          _croppedData!,
+                          fit: BoxFit.contain,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
                 child: Crop(
                   controller: _controller,
                   image: widget.imageBytes,
@@ -95,19 +106,8 @@ class _FullScreenCropState extends State<FullScreenCrop> {
                     }
                   },
                 ),
-                replacement: _croppedData != null
-                    ? SizedBox(
-                        height: double.infinity,
-                        width: double.infinity,
-                        child: Image.memory(
-                          _croppedData!,
-                          fit: BoxFit.contain,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
               )
             : const SizedBox.shrink(),
-        replacement: const Center(child: CircularProgressIndicator()),
       ),
     );
   }

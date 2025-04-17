@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:opencv_dart/opencv_dart.dart' as cv;
 import 'package:file_picker/file_picker.dart';
 import 'full_screen_crop.dart';
+import 'main_rect.dart';
 
 
 
@@ -313,7 +314,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       // 創建遮罩
       mask = cv.Mat.empty();
-      cv.Scalar lowerScalar = cv.Scalar(110, 50, 50);
+      cv.Scalar lowerScalar = cv.Scalar(80, 50, 50);
       cv.Scalar upperScalar = cv.Scalar(130, 255, 255);
       final lowerMat = cv.Mat.fromScalar(1, 3, cv.MatType.CV_8UC3, lowerScalar);
       final upperMat = cv.Mat.fromScalar(1, 3, cv.MatType.CV_8UC3, upperScalar);
@@ -344,7 +345,7 @@ class _MyHomePageState extends State<MyHomePage> {
       cv.Rect? largestRect;
 
       for (final contour in contours) {
-        if (contour == null || contour.isEmpty) continue;
+        if (contour.isEmpty) continue;
         final area = cv.contourArea(contour);
         if (area > maxArea) {
           maxArea = area;
@@ -420,6 +421,16 @@ class _MyHomePageState extends State<MyHomePage> {
                 ElevatedButton(onPressed: _autoCrop, child: const Text("自動選取")),
                 const SizedBox(width: 10),
                 ElevatedButton(onPressed: _analyzeVideoEverySecond, child: const Text("開始分析整部影片")),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const MainRectPage()),
+                    );
+                  },
+                  child: const Text("校正"),
+                ),
               ]
             ),
             Text("寬: $width, 高: $height, FPS: $fps, 後端: $backend"),

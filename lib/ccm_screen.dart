@@ -1,0 +1,133 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:ml_linalg/linalg.dart';
+
+/// CCM 計算工具類（可在其他檔案直接呼叫）
+class CCMCalculator {
+  /// 計算 OLS CCM 與誤差
+  /// [deviceRGB]：Matrix(18x3) 實際偵測色塊
+  /// [targetRGB]：Matrix(18x3) 標準色卡
+  /// 回傳 {'olsCCM': Matrix, 'olsError': Matrix}
+  Map<String, Matrix> calculateCCMs(Matrix deviceRGB, Matrix targetRGB) {
+    final olsCCM = _calculateOLSCCM(deviceRGB, targetRGB);
+    final olsError = _calculateError(deviceRGB, targetRGB, olsCCM);
+    return {'olsCCM': olsCCM, 'olsError': olsError};
+  }
+
+  /// OLS CCM 計算 (加 bias)
+  Matrix _calculateOLSCCM(Matrix deviceRGB, Matrix targetRGB) {
+    final deviceRGBWithBias = _addBiasColumn(deviceRGB);
+    return (deviceRGBWithBias.transpose() * deviceRGBWithBias)
+        .inverse() *
+        deviceRGBWithBias.transpose() *
+        targetRGB;
+  }
+
+  /// 加 bias column (左側加一欄 1)
+  Matrix _addBiasColumn(Matrix matrix) {
+    final dataWithBias = matrix.rows.map((row) => [1.0, ...row]).toList();
+    return Matrix.fromList(dataWithBias);
+  }
+
+  /// 計算 CCM 校正後誤差
+  Matrix _calculateError(Matrix deviceRGB, Matrix targetRGB, Matrix ccm) {
+    final deviceRGBWithBias = _addBiasColumn(deviceRGB);
+    final predictedRGB = (deviceRGBWithBias * ccm).mapElements((v) => v.clamp(0.0, 255.0));
+    return targetRGB - predictedRGB;
+  }
+}
+
+/// CCM 計算與顯示頁面（只保留顯示與互動）
+class CcmScreen extends StatefulWidget {
+  final List<List<double>> deviceRGBData;
+  final List<List<double>> targetRGBData;
+  const CcmScreen({super.key, required this.deviceRGBData, required this.targetRGBData});
+
+  @override
+  State<CcmScreen> createState() => _CcmScreenState();
+}
+
+class _CcmScreenState extends State<CcmScreen> {
+  Matrix? _olsCCM, _olsError, _originalError, _predictedRGB;
+
+  /// 格式化矩陣為字串
+  String formatMatrix(Matrix? matrix, [int maxRows = 20]) {
+    if (matrix == null) return 'N/A';
+    return List.generate(
+      min(matrix.rowCount, maxRows),
+      (i) => matrix.getRow(i).toList().map((e) => e.toStringAsFixed(4)).join(', ')
+    ).join('\n');
+  }
+
+  /// 計算原始 RMSE 誤差
+  Matrix calculateOriginalError(Matrix deviceRGB, Matrix targetRGB) {
+    return Matrix.fromList(List.generate(deviceRGB.rowCount, (i) {
+      final r = targetRGB[i][0] - deviceRGB[i][0];
+      final g = targetRGB[i][1] - deviceRGB[i][1];
+      final b = targetRGB[i][2] - deviceRGB[i][2];
+      return [sqrt(r * r + g * g + b * b)];
+    }));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final calculator = CCMCalculator();
+    final deviceRGB = Matrix.fromList(widget.deviceRGBData);
+    final targetRGB = Matrix.fromList(widget.targetRGBData);
+    final results = calculator.calculateCCMs(deviceRGB, targetRGB);
+    _olsCCM = results['olsCCM'];
+    _olsError = results['olsError'];
+    _originalError = calculateOriginalError(deviceRGB, targetRGB);
+    final deviceRGBWithBias = calculator._addBiasColumn(deviceRGB);
+    _predictedRGB = (_olsCCM != null)
+        ? (deviceRGBWithBias * _olsCCM!).mapElements((v) => v.clamp(0.0, 255.0))
+        : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('CCM Calculator')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('OLS CCM:'), Text(formatMatrix(_olsCCM)),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('OLS Error:'), Text(formatMatrix(_olsError, 10)),
+                    ],
+                  )),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Original Error:'), Text(formatMatrix(_originalError, 10)),
+                    ],
+                  )),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Original RGB (前3):'),
+              Text(formatMatrix(Matrix.fromList(widget.deviceRGBData.sublist(0, 3)))),
+              const SizedBox(height: 8),
+              const Text('Predicted RGB (前3):'),
+              Text(formatMatrix(_predictedRGB, 3)),
+              const SizedBox(height: 8),
+              const Text('Target RGB (前3):'),
+              Text(formatMatrix(Matrix.fromList(widget.targetRGBData.sublist(0, 3)))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
