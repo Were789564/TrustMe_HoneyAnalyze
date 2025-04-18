@@ -18,6 +18,7 @@ class _RealtimeAnalyzeState extends State<RealtimeAnalyze> {
   CameraController? _controller;
   Timer? _timer;
   Uint8List? _currentFrameBytes;
+  Uint8List? _previousFrameBytes; // 新增：上一張圖
   cv.Rect? _selectedRect;
   Uint8List? _lastRawFrameBytes;
   List<int>? _lastRGB; // 新增：儲存RGB
@@ -52,40 +53,51 @@ class _RealtimeAnalyzeState extends State<RealtimeAnalyze> {
   }
 
   void _startRealtimeCapture() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _captureFrame());
+    _timer = Timer.periodic(
+        const Duration(milliseconds: 10), (_) => _captureFrame());
   }
 
-  Future<void> _captureFrame() async {
+    Future<void> _captureFrame() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     try {
       final XFile file = await _controller!.takePicture();
       final bytes = await file.readAsBytes();
       _lastRawFrameBytes = bytes;
-      if (_selectedRect != null) {
-        // 畫框並計算RGB
-        final mat = cv.imdecode(bytes, cv.IMREAD_COLOR);
-        if (!mat.isEmpty) {
-          // 計算ROI RGB
+      
+      // 解碼影像
+      final mat = cv.imdecode(bytes, cv.IMREAD_COLOR);
+      
+      if (!mat.isEmpty) {
+        if (_selectedRect != null) {
+          // 在原始影像上繪製選取框
+           cv.rectangle(mat, _selectedRect!, cv.Scalar(0, 255, 0, 255), thickness: 2);;
+          
+          // 獲取選取區域的平均顏色
           final roi = mat.region(_selectedRect!);
           final cv.Scalar mean = cv.mean(roi);
           final int b = mean.val1.round();
           final int g = mean.val2.round();
           final int r = mean.val3.round();
           roi.dispose();
+          
           setState(() {
             _lastRGB = [r, g, b];
+            _previousFrameBytes = _currentFrameBytes; // 先存舊圖
+            _currentFrameBytes = cv.imencode(".jpg", mat).$2;
           });
-          cv.rectangle(mat, _selectedRect!, cv.Scalar(0, 255, 0, 255), thickness: 2);
-          final outBytes = cv.imencode(".jpg", mat).$2;
+        } else {
           setState(() {
-            _currentFrameBytes = outBytes;
+            _lastRGB = null;
+            _previousFrameBytes = _currentFrameBytes; // 先存舊圖
+            _currentFrameBytes = cv.imencode(".jpg", mat).$2;
           });
-          mat.dispose();
         }
+        mat.dispose();
       } else {
         setState(() {
-          _currentFrameBytes = bytes;
           _lastRGB = null;
+          _previousFrameBytes = _currentFrameBytes; // 先存舊圖
+          _currentFrameBytes = bytes;
         });
       }
     } catch (e) {
@@ -143,18 +155,30 @@ class _RealtimeAnalyzeState extends State<RealtimeAnalyze> {
                         width: 1280,
                         height: 720,
                         color: Colors.white,
-                        child: _currentFrameBytes != null
-                            ? AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 200),
-                                child: Image.memory(
-                                  _currentFrameBytes!,
-                                  key: ValueKey<String>(DateTime.now().toString()),
-                                  width: 1280,
-                                  height: 720,
-                                  //fit: BoxFit.cover,
-                                ),
-                              )
-                            : const Center(child: Text("等待影像...", style: TextStyle(color: Colors.white))),
+                        child: Stack(
+                          children: [
+                            if (_previousFrameBytes != null)
+                              Image.memory(
+                                _previousFrameBytes!,
+                                width: 1280,
+                                height: 720,
+                                fit: BoxFit.cover,
+                              ),
+                            if (_currentFrameBytes != null)
+                              Image.memory(
+                                _currentFrameBytes!,
+                                width: 1280,
+                                height: 720,
+                                fit: BoxFit.cover,
+                              ),
+                            if (_currentFrameBytes == null &&
+                                _previousFrameBytes == null)
+                              const Center(
+                                  child: Text("等待影像...",
+                                      style: TextStyle(color: Colors.white))),
+                            
+                          ],
+                        ),
                       ),
                       if (_selectedRect != null)
                         Padding(
@@ -174,7 +198,8 @@ class _RealtimeAnalyzeState extends State<RealtimeAnalyze> {
                                 width: 32,
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  color: Color.fromARGB(255, _lastRGB![0], _lastRGB![1], _lastRGB![2]),
+                                  color: Color.fromARGB(255, _lastRGB![0],
+                                      _lastRGB![1], _lastRGB![2]),
                                   border: Border.all(color: Colors.black26),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
@@ -182,7 +207,8 @@ class _RealtimeAnalyzeState extends State<RealtimeAnalyze> {
                               const SizedBox(width: 12),
                               Text(
                                 "R: ${_lastRGB![0]}, G: ${_lastRGB![1]}, B: ${_lastRGB![2]}",
-                                style: const TextStyle(fontSize: 18, color: Colors.black87),
+                                style: const TextStyle(
+                                    fontSize: 18, color: Colors.black87),
                               ),
                             ],
                           ),
