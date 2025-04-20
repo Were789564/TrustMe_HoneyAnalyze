@@ -5,9 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:opencv_dart/opencv_dart.dart' as cv; // 引入 opencv_dart
 
 class FullScreenCrop extends StatefulWidget {
-  const FullScreenCrop({super.key, required this.imageBytes});
+  const FullScreenCrop({
+    super.key,
+    required this.imageBytes,
+    this.initialRect,
+    this.imageWidth,
+    this.imageHeight
+    });
 
   final Uint8List imageBytes;
+  final Rect? initialRect; // 新增 initialRect 參數
+  final int? imageWidth; // 新增 imageWidth 參數
+  final int? imageHeight; // 新增 imageHeight 參數
 
   @override
   _FullScreenCropState createState() => _FullScreenCropState();
@@ -17,6 +26,7 @@ class _FullScreenCropState extends State<FullScreenCrop> {
   final _controller = CropController();
   var _isProcessing = false;
   Rect? _cropRect; // 保存裁剪的 Rect 物件
+
 
   set isProcessing(bool value) {
     setState(() {
@@ -82,6 +92,26 @@ class _FullScreenCropState extends State<FullScreenCrop> {
                 child: Crop(
                   controller: _controller,
                   image: widget.imageBytes,
+                  initialRectBuilder: InitialRectBuilder.withBuilder((viewportRect, imageRect) {
+                    if (widget.initialRect != null) {
+
+                      // 假設 widget.initialRect 是原圖座標
+                      final scaleX = imageRect.width / widget.imageWidth!;
+                      final scaleY = imageRect.height / widget.imageHeight!;
+                      final left = imageRect.left + widget.initialRect!.left * scaleX;
+                      final top = imageRect.top + widget.initialRect!.top * scaleY;
+                      final right = left + widget.initialRect!.width * scaleX;
+                      final bottom = top + widget.initialRect!.height * scaleY;
+                      return Rect.fromLTRB(left, top, right, bottom);
+                    }
+                    // 預設裁剪框
+                    return Rect.fromLTRB(
+                      viewportRect.left + 24,
+                      viewportRect.top + 32,
+                      viewportRect.right - 24,
+                      viewportRect.bottom - 32,
+                    );
+                  }),
                   onMoved: (Rect1, Rect2) {
                     _cropRect = Rect2; // 保存裁剪的 Rect
                   },

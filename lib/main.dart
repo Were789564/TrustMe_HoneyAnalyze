@@ -118,6 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
             setState(() => rgbLog += "無法解碼第一幀以獲取解析度\n");
           }
           frame.dispose();
+          await _autoCrop();
         } else {
           setState(() => rgbLog += "無法擷取第一幀\n");
         }
@@ -128,7 +129,7 @@ class _MyHomePageState extends State<MyHomePage> {
           height = vc.get(cv.CAP_PROP_FRAME_HEIGHT).toInt();
           fps = vc.get(cv.CAP_PROP_FPS);
           this.vc = vc;
-          _selectedRect = null;
+          //_selectedRect = null;
         });
       }
     }
@@ -136,12 +137,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _navigateToCropScreen(BuildContext context) async {
     if (_firstFrameBytes != null) {
-      final selectedRect = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FullScreenCrop(imageBytes: _firstFrameBytes!),
-        ),
-      );
+        Rect? initialRect;
+        if (_selectedRect != null) {
+          // 轉換 cv.Rect 為 Flutter 的 Rect
+          initialRect = Rect.fromLTWH(
+            _selectedRect!.x.toDouble(),
+            _selectedRect!.y.toDouble(),
+            _selectedRect!.width.toDouble(),
+            _selectedRect!.height.toDouble(),
+          );
+        }
+        final selectedRect = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenCrop(
+              imageBytes: _firstFrameBytes!,
+              imageWidth: width,
+              imageHeight: height,
+              initialRect: initialRect, // 傳入
+              
+            ),
+          ),
+        );
       if (selectedRect is cv.Rect) {
         setState(() {
           _selectedRect = selectedRect;
@@ -150,7 +167,8 @@ class _MyHomePageState extends State<MyHomePage> {
           _drawRectangleOnFirstFrame();
         });
       }
-    } else {
+    } 
+    else {
       setState(() => rgbLog = "請先選擇影片以擷取第一幀");
     }
   }
@@ -286,7 +304,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  void _autoCrop() async {
+  Future<void> _autoCrop() async  {
     if (_firstFrameBytes == null) {
       setState(() => rgbLog = "請先選擇影片以擷取第一幀\n");
       return;
