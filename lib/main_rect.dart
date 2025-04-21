@@ -24,80 +24,25 @@ class _MyAppState extends State<MainRectPage> {
   String? lastCCMTime;
   Matrix? lastCCM;
 
-  /// 自動偵測矩形並取得每個色塊的平均顏色
-  /// 
-  /// 輸入：
-  ///   [inputMat] : cv.Mat，輸入的彩色影像
-  /// 輸出：
-  ///   (cv.Mat 處理後影像, List<List<double>> 色塊平均顏色, String log)
-  ///   - 處理後影像（已畫出偵測到的矩形）
-  ///   - 色塊平均顏色（每個色塊的 [R, G, B]）
-  ///   - 偵測過程的日誌字串
-  // Future<(cv.Mat, List<List<double>>, String)> detectRectanglesAndColorsAsync(cv.Mat inputMat) async {
-  //   final outputMat = inputMat.clone();
-  //   final StringBuffer logBuffer = StringBuffer();
-  //   final gray = await cv.cvtColorAsync(inputMat, cv.COLOR_BGR2GRAY);
-  //   final blurred = await cv.gaussianBlurAsync(gray, (5, 5), 0, sigmaY: 0);
-  //   final thresholded = await cv.cannyAsync(blurred, 70, 100);
-  //   final contours = await cv.findContoursAsync(thresholded, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-  //   int rectangleCount = 0;
-  //   List<cv.Rect> rects = [];
-  //   List<List<double>> colors = [];
-
-  //   for (var i = 0; i < contours.$1.length; i++) {
-  //     final contour = contours.$1.elementAt(i);
-  //     final peri = cv.arcLength(contour, true);
-  //     final approx = cv.approxPolyDP(contour, 0.03 * peri, true);
-
-  //     if (approx.length == 4) {
-  //       final area = cv.contourArea(contour);
-  //       const minArea = 100.0;
-  //       final isConvex = cv.isContourConvex(approx);
-
-  //       if (area > minArea && isConvex) {
-  //         final rect = cv.boundingRect(approx);
-  //         // 過濾重複
-  //         bool isDuplicate = rects.any((r) =>
-  //           (rect.x - r.x).abs() < 5 &&
-  //           (rect.y - r.y).abs() < 5 &&
-  //           (rect.width - r.width).abs() < 10 &&
-  //           (rect.height - r.height).abs() < 10
-  //         );
-  //         if (!isDuplicate) {
-  //           rectangleCount++;
-  //           rects.add(rect);
-  //           cv.rectangle(outputMat, rect, cv.Scalar(0, 255, 0, 255), thickness: 2);
-  //           // 取得色塊平均顏色 (R, G, B)
-  //           final roi = inputMat.region(rect);
-  //           final meanColor = cv.mean(roi);
-  //           roi.dispose();
-  //           colors.add([meanColor.val3, meanColor.val2, meanColor.val1]);
-  //         }
-  //       }
-  //     }
-  //     approx.dispose();
-  //   }
-
-  //   colors = colors.reversed.toList(); // 反轉順序
-  //   logBuffer.writeln("偵測到 $rectangleCount 個矩形。");
-  //   gray.dispose();
-  //   blurred.dispose();
-  //   thresholded.dispose();
-  //   contours.$1.dispose();
-
-  //   return (outputMat, colors, logBuffer.toString());
-  // }
 
   /// 自動偵測矩形並取得每個色塊的平均顏色（參考 test_canny.py 流程與排序）
-/// 輸入：cv.Mat 彩色影像
-/// 輸出：(處理後影像, 色塊平均顏色, log)
+  /// 輸入：cv.Mat 彩色影像
+  /// 輸出：(處理後影像, 色塊平均顏色, log)
   Future<(cv.Mat, List<List<double>>, String)> detectRectanglesAndColorsAsync(cv.Mat inputMat) async {
     final outputMat = inputMat.clone();
     final StringBuffer logBuffer = StringBuffer();
 
+    // Step 0: 遮罩白色背景，僅保留非白色區域
+    final hsv = await cv.cvtColorAsync(inputMat, cv.COLOR_BGR2HSV);
+    final lowerWhite = cv.Mat.fromList(1,3, cv.MatType.CV_8UC1, [0, 0, 130]);
+    final upperWhite = cv.Mat.fromList(1,3, cv.MatType.CV_8UC1, [180, 50, 255]);
+    final maskWhite = cv.Mat.empty();
+    await cv.inRangeAsync(hsv, lowerWhite, upperWhite, dst: maskWhite);
+    final maskNotWhite = await cv.bitwiseNOTAsync(maskWhite);
+    final imageNoWhite = await cv.bitwiseANDAsync(inputMat, inputMat, mask: maskNotWhite);
+
     // Step 1: 灰階
-    final gray = await cv.cvtColorAsync(inputMat, cv.COLOR_BGR2GRAY);
+    final gray = await cv.cvtColorAsync(imageNoWhite, cv.COLOR_BGR2GRAY);
 
     // Step 2: CLAHE 增強
     final clahe = cv.createCLAHE(clipLimit: 2.0, tileGridSize: (8, 8));
@@ -107,48 +52,50 @@ class _MyAppState extends State<MainRectPage> {
     final blurred = await cv.gaussianBlurAsync(enhanced, (5, 5), 0, sigmaY: 0);
 
     // Step 3: Canny 邊緣偵測
-    final canny = await cv.cannyAsync(blurred, 50, 100);
+    final canny = await cv.cannyAsync(blurred, 20, 90);
 
-    // Step 4: 閉運算
-    final kernel = cv.getStructuringElement(cv.MORPH_RECT, (9, 9));
+    // Step 4: 閉運算（加大 kernel）
+    final kernel = cv.getStructuringElement(cv.MORPH_RECT, (20, 20));
     final closed = await cv.morphologyExAsync(canny, cv.MORPH_CLOSE, kernel);
+    final dilated = await cv.dilateAsync(closed, cv.getStructuringElement(cv.MORPH_RECT, (5, 5)));
 
-    // Step 5: 找輪廓
-    final contours = await cv.findContoursAsync(closed, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    // Step 5: 找輪廓（並過濾小面積）
+    final contoursResult = await cv.findContoursAsync(dilated, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    final contours = contoursResult.$1; // contours 是 List<VecPoint>
+    List<cv.VecPoint> filteredContours = [];
+    for (var i = 0; i < contours.length; i++) {
+      final cnt = contours[i];
+      final area = cv.contourArea(cnt);
+      if (area > 600) {
+        final peri = cv.arcLength(cnt, true);
+        final approx = cv.approxPolyDP(cnt, 0.02 * peri, true); // approx 是 VecPoint
+        if (approx.length == 4 && cv.isContourConvex(approx)) {
+          filteredContours.add(approx); // 用 VecPoint
+        }
+      }
+    }
 
-    // Step 6: 過濾輪廓並找矩形
+    // Step 6: 找矩形
     List<cv.Rect> detectedRects = [];
     int rectangleCount = 0;
-    List<String> logLines = [];
-    const minArea = 1000.0;
-
-    for (var i = 0; i < contours.$1.length; i++) {
-      final contour = contours.$1.elementAt(i);
-      final peri = cv.arcLength(contour, true);
-      final approx = cv.approxPolyDP(contour, 0.04 * peri, true);
-      if (approx.length >= 4 && approx.length <= 6) {
-        final area = cv.contourArea(contour);
-        final isConvex = cv.isContourConvex(approx);
-        if (area > minArea && isConvex) {
-          final rect = cv.boundingRect(approx);
-          // 過濾重複
-          bool isDuplicate = detectedRects.any((r) =>
-            (rect.x - r.x).abs() < 15 &&
-            (rect.y - r.y).abs() < 15 &&
-            (rect.width - r.width).abs() < 20 &&
-            (rect.height - r.height).abs() < 20
-          );
-          if (!isDuplicate) {
-            rectangleCount++;
-            detectedRects.add(rect);
-            logLines.add("Detected Rectangle #$rectangleCount: [x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height}], Area:$area");
-          }
-        }
+    for (final approx in filteredContours) {
+      final rect = cv.boundingRect(approx);
+      // 過濾重複
+      bool isDuplicate = detectedRects.any((r) =>
+        (rect.x - r.x).abs() < 15 &&
+        (rect.y - r.y).abs() < 15 &&
+        (rect.width - r.width).abs() < 20 &&
+        (rect.height - r.height).abs() < 20
+      );
+      if (!isDuplicate) {
+        rectangleCount++;
+        detectedRects.add(rect);
+        logBuffer.writeln("Detected Rectangle #$rectangleCount: [x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height}]");
       }
       approx.dispose();
     }
 
-    // Step 7: 依 y,x 排序並分群（行），縮框
+    // Step 7: 重新依照位置排序並重新打上編號
     detectedRects.sort((a, b) {
       int dy = a.y.compareTo(b.y);
       return dy != 0 ? dy : a.x.compareTo(b.x);
@@ -206,22 +153,27 @@ class _MyAppState extends State<MainRectPage> {
         );
         // 畫框與編號
         cv.rectangle(outputMat, cv.Rect(xNew, yNew, wNew, hNew), cv.Scalar(255, 0, 0, 255), thickness: 2);
-        // 若有 putText 可用，可加上編號
         newCount++;
       }
     }
 
-    logBuffer.writeln("共偵測到 ${colors.length} 個色塊。");
-
     // 資源釋放
+    hsv.dispose();
+    lowerWhite.dispose();
+    upperWhite.dispose();
+    maskWhite.dispose();
+    maskNotWhite.dispose();
+    imageNoWhite.dispose();
     gray.dispose();
     enhanced.dispose();
     blurred.dispose();
     canny.dispose();
     closed.dispose();
-    contours.$1.dispose();
+    dilated.dispose();
+    contours.dispose();
     kernel.dispose();
 
+    logBuffer.writeln("共偵測到 ${colors.length} 個色塊。");
     return (outputMat, colors, logBuffer.toString());
   }
 
