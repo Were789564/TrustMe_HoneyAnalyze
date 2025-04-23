@@ -27,20 +27,30 @@ class VideoAnalyzeScreen extends StatelessWidget {
                 // AppBar 樣式
                 Padding(
                   padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.04, vertical: screenHeight * 0.01),
+                      horizontal: screenWidth * 0.04,
+                      vertical: screenHeight * 0.01),
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                        icon:
+                            const Icon(Icons.arrow_back, color: Colors.black87),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 8),
                       const Text(
                         "影片分析",
                         style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
                           color: Colors.black87,
+                          letterSpacing: 4,
+                          shadows: [
+                            Shadow(
+                              color: Colors.yellow,
+                              offset: Offset(0, 2),
+                              blurRadius: 8,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -54,7 +64,8 @@ class VideoAnalyzeScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.upload_file, color: Colors.black),
+                          icon: const Icon(Icons.upload_file,
+                              color: Colors.black),
                           label: const Text(
                             "上傳影片",
                             style: TextStyle(color: Colors.black, fontSize: 14),
@@ -75,7 +86,8 @@ class VideoAnalyzeScreen extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.crop_square, color: Colors.black),
+                          icon: const Icon(Icons.crop_square,
+                              color: Colors.black),
                           label: const Text(
                             "調整選取框",
                             style: TextStyle(color: Colors.black, fontSize: 14),
@@ -96,7 +108,8 @@ class VideoAnalyzeScreen extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.play_arrow, color: Colors.black),
+                          icon:
+                              const Icon(Icons.play_arrow, color: Colors.black),
                           label: const Text(
                             "開始分析",
                             style: TextStyle(color: Colors.black, fontSize: 14),
