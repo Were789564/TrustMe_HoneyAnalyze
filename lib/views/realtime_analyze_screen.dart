@@ -5,10 +5,10 @@ class RealtimeAnalyzeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    
-
     return Scaffold(
-      
+        appBar: AppBar(
+        title: const Text("即時影像顯示"),
+      )
     );
   }
 }

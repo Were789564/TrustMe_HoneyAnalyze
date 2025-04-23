@@ -57,7 +57,7 @@ class HomeScreen extends StatelessWidget {
                           title: "影片分析",
                           color: Colors.deepOrangeAccent,
                           onTap: () {
-                            Navigator.pushReplacementNamed(context, '/video_analyze');
+                            Navigator.pushNamed(context, '/video_analyze');
                           },
                         ),
                         SizedBox(height: screenHeight * 0.025),
@@ -66,7 +66,7 @@ class HomeScreen extends StatelessWidget {
                           title: "即時分析",
                           color: Colors.amber,
                           onTap: () {
-                            Navigator.pushReplacementNamed(context, '/realtime_analyze');
+                            Navigator.pushNamed(context, '/realtime_analyze');
                           },
                         ),
                         SizedBox(height: screenHeight * 0.025),
@@ -75,7 +75,7 @@ class HomeScreen extends StatelessWidget {
                           title: "查看檢測紀錄",
                           color: Colors.purpleAccent,
                           onTap: () {
-                            Navigator.pushReplacementNamed(context, '/history');
+                            Navigator.pushNamed(context, '/history');
                           },
                         ),
                         SizedBox(height: screenHeight * 0.025),
