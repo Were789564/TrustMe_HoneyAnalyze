@@ -1,72 +1,88 @@
 import 'dart:typed_data';
-
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
-import 'package:opencv_dart/opencv_dart.dart' as cv; // 引入 opencv_dart
+import 'package:opencv_dart/opencv_dart.dart' as cv;
+import 'package:provider/provider.dart';
+import '../controllers/full_screen_select_controller.dart';
 
-class FullScreenCrop extends StatefulWidget {
-  const FullScreenCrop({
+// View
+class FullScreenSelect extends StatelessWidget {
+  const FullScreenSelect({
     super.key,
     required this.imageBytes,
     this.initialRect,
     this.imageWidth,
-    this.imageHeight
-    });
+    this.imageHeight,
+  });
 
   final Uint8List imageBytes;
-  final Rect? initialRect; // 新增 initialRect 參數
-  final int? imageWidth; // 新增 imageWidth 參數
-  final int? imageHeight; // 新增 imageHeight 參數
-
-  @override
-  _FullScreenCropState createState() => _FullScreenCropState();
-}
-
-class _FullScreenCropState extends State<FullScreenCrop> {
-  final _controller = CropController();
-  var _isProcessing = false;
-  Rect? _cropRect; // 保存裁剪的 Rect 物件
-
-
-  set isProcessing(bool value) {
-    setState(() {
-      _isProcessing = value;
-    });
-  }
-
-  Uint8List? _croppedData;
-
-  set croppedData(Uint8List? value) {
-    setState(() {
-      _croppedData = value;
-    });
-  }
+  final Rect? initialRect;
+  final int? imageWidth;
+  final int? imageHeight;
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("FullScreenCrop build 方法被調用");
-    debugPrint("FullScreenCrop 接收到的 imageBytes 長度: ${widget.imageBytes.length}");
+    return ChangeNotifierProvider(
+      create: (_) => FullScreenSelectController(),
+      child: _FullScreenSelectView(
+        imageBytes: imageBytes,
+        initialRect: initialRect,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+      ),
+    );
+  }
+}
+
+class _FullScreenSelectView extends StatelessWidget {
+  const _FullScreenSelectView({
+    required this.imageBytes,
+    required this.initialRect,
+    required this.imageWidth,
+    required this.imageHeight,
+  });
+
+  final Uint8List imageBytes;
+  final Rect? initialRect;
+  final int? imageWidth;
+  final int? imageHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<FullScreenSelectController>();
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFF176), // 黃色系
         title: const Text(
           '選取分析區域',
-          style: TextStyle(color: Colors.black87),
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+            letterSpacing: 2,
+            shadows: [
+              Shadow(
+                color: Colors.yellow,
+                offset: Offset(0, 2),
+                blurRadius: 8,
+              ),
+            ],
+          ),
         ),
         actions: [
-          if (_croppedData == null)
+          if (controller.croppedData == null)
             IconButton(
-              icon: const Icon(Icons.check), // 使用 check 圖示表示確認選取
+              icon: const Icon(Icons.check, color: Colors.black87),
               onPressed: () {
-                isProcessing = true;
-                _controller.crop();
+                controller.setProcessing(true);
+                controller.cropController.crop();
               },
             ),
-          if (_croppedData != null)
+          if (controller.croppedData != null)
             IconButton(
-              icon: const Icon(Icons.redo),
-              onPressed: () => croppedData = null,
+              icon: const Icon(Icons.redo, color: Colors.black87),
+              onPressed: () => controller.reset(),
             ),
         ],
         iconTheme: const IconThemeData(
@@ -74,37 +90,37 @@ class _FullScreenCropState extends State<FullScreenCrop> {
         ),
       ),
       body: Visibility(
-        visible: widget.imageBytes.isNotEmpty && !_isProcessing,
-        replacement: const Center(child: CircularProgressIndicator()), // 注意這裡的判斷
-        child: widget.imageBytes.isNotEmpty
+        visible: imageBytes.isNotEmpty && !controller.isProcessing,
+        replacement: const Center(child: CircularProgressIndicator()),
+        child: imageBytes.isNotEmpty
             ? Visibility(
-                visible: _croppedData == null,
-                replacement: _croppedData != null
+                visible: controller.croppedData == null,
+                replacement: controller.croppedData != null
                     ? SizedBox(
                         height: double.infinity,
                         width: double.infinity,
                         child: Image.memory(
-                          _croppedData!,
+                          controller.croppedData!,
                           fit: BoxFit.contain,
                         ),
                       )
                     : const SizedBox.shrink(),
                 child: Crop(
-                  controller: _controller,
-                  image: widget.imageBytes,
-                  initialRectBuilder: InitialRectBuilder.withBuilder((viewportRect, imageRect) {
-                    if (widget.initialRect != null) {
-
-                      // 假設 widget.initialRect 是原圖座標
-                      final scaleX = imageRect.width / widget.imageWidth!;
-                      final scaleY = imageRect.height / widget.imageHeight!;
-                      final left = imageRect.left + widget.initialRect!.left * scaleX;
-                      final top = imageRect.top + widget.initialRect!.top * scaleY;
-                      final right = left + widget.initialRect!.width * scaleX;
-                      final bottom = top + widget.initialRect!.height * scaleY;
+                  controller: controller.cropController,
+                  image: imageBytes,
+                  initialRectBuilder:
+                      InitialRectBuilder.withBuilder((viewportRect, imageRect) {
+                    if (initialRect != null &&
+                        imageWidth != null &&
+                        imageHeight != null) {
+                      final scaleX = imageRect.width / imageWidth!;
+                      final scaleY = imageRect.height / imageHeight!;
+                      final left = imageRect.left + initialRect!.left * scaleX;
+                      final top = imageRect.top + initialRect!.top * scaleY;
+                      final right = left + initialRect!.width * scaleX;
+                      final bottom = top + initialRect!.height * scaleY;
                       return Rect.fromLTRB(left, top, right, bottom);
                     }
-                    // 預設裁剪框
                     return Rect.fromLTRB(
                       viewportRect.left + 24,
                       viewportRect.top + 32,
@@ -112,26 +128,26 @@ class _FullScreenCropState extends State<FullScreenCrop> {
                       viewportRect.bottom - 32,
                     );
                   }),
-                  onMoved: (Rect1, Rect2) {
-                    _cropRect = Rect2; // 保存裁剪的 Rect
+                  onMoved: (_, rect) {
+                    controller.setCropRect(rect);
                   },
                   onCropped: (result) {
                     switch (result) {
                       case CropSuccess(:final croppedImage):
-                        croppedData = croppedImage;
-                        isProcessing = false;
-                        if (_cropRect != null) {
+                        controller.setCroppedData(croppedImage);
+                        controller.setProcessing(false);
+                        if (controller.cropRect != null) {
                           final selectedRect = cv.Rect(
-                            _cropRect!.left.toInt(),
-                            _cropRect!.top.toInt(),
-                            _cropRect!.width.toInt(),
-                            _cropRect!.height.toInt(),
+                            controller.cropRect!.left.toInt(),
+                            controller.cropRect!.top.toInt(),
+                            controller.cropRect!.width.toInt(),
+                            controller.cropRect!.height.toInt(),
                           );
-                          Navigator.pop(context, selectedRect); // 只有在裁剪成功後才 pop
+                          Navigator.pop(context, selectedRect);
                         }
                         break;
                       case CropFailure():
-                        isProcessing = false;
+                        controller.setProcessing(false);
                         break;
                     }
                   },
