@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// 檢測歷史紀錄顯示畫面
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
@@ -7,7 +8,7 @@ class HistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("即時影像顯示"),
+        title: const Text("檢測歷史紀錄"),
       )
     );
   }

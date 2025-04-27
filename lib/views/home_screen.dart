@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/home_feature_card.dart';
 
+/// 應用主頁畫面
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 

@@ -70,7 +70,7 @@ class _RealtimeAnalyzeState extends State<RealtimeAnalyze> {
       if (!mat.isEmpty) {
         if (_selectedRect != null) {
           // 在原始影像上繪製選取框
-           cv.rectangle(mat, _selectedRect!, cv.Scalar(0, 255, 0, 255), thickness: 2);;
+           cv.rectangle(mat, _selectedRect!, cv.Scalar(0, 255, 0, 255), thickness: 2);
           
           // 獲取選取區域的平均顏色
           final roi = mat.region(_selectedRect!);

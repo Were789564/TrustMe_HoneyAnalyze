@@ -4,6 +4,7 @@ import 'package:flutter_app/views/home_screen.dart';
 import 'package:flutter_app/views/realtime_analyze_screen.dart';
 import 'package:flutter_app/views/video_analyze_screen.dart';
 import 'package:flutter_app/views/history_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 
 void main() async {
@@ -37,6 +38,16 @@ class MyApp extends StatelessWidget {
           headlineLarge: TextStyle(fontFamily: 'Roboto', fontSize: 20), // 保持 headline6
         ),
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: [
+        Locale('zh', 'TW'),
+        Locale('en', 'US'),
+        Locale('en', 'US'),
+        // 其他需要的語系
+      ],
       home: LoginScreen(),
     );
   }

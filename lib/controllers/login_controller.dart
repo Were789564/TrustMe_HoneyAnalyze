@@ -7,6 +7,7 @@ class LoginController {
   final _storage = const FlutterSecureStorage();
 
   Future<bool> login(User user) async {
+    return true ; // 改: 這裡是測試用的，實際上應該是 false
     final url = Uri.parse('http://10.242.32.81:8000/login');
     final response = await http.post(
       url,

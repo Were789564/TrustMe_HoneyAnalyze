@@ -5,6 +5,7 @@ import 'package:opencv_dart/opencv_dart.dart' as cv;
 import 'package:file_picker/file_picker.dart';
 import '../views/full_screen_select_screen.dart';
 
+/// 影片分析控制器，負責處理影片讀取和分析
 class VideoAnalyzeController extends ChangeNotifier {
   int width = -1;
   int height = -1;
@@ -19,10 +20,12 @@ class VideoAnalyzeController extends ChangeNotifier {
   Uint8List? currentFrameBytes;
   cv.Rect? selectedRect;
   String rgbLog = "";
+  double? progress;
+  bool isAnalyzing = false;
 
   /// 選擇影片檔案並擷取第一幀
   Future<void> pickVideo() async {
-    rgbLog = ""; // 清空log
+    rgbLog = "";
     FilePickerResult? result =
         await FilePicker.platform.pickFiles(type: FileType.video);
     if (result != null) {
@@ -70,12 +73,9 @@ class VideoAnalyzeController extends ChangeNotifier {
 
   /// 設定選取的矩形區域
   void setSelectedRect(cv.Rect rect) {
-    //rgbLog = ""; // 清空log
     selectedRect = rect;
-    // rgbLog +=
-    //     "已選取矩形: ${selectedRect!.x}, ${selectedRect!.y}, ${selectedRect!.width}x${selectedRect!.height}\n";
     drawRectangleOnFirstFrame();
-    notifyListeners(); // 加上這行，確保畫面會更新
+    notifyListeners();
   }
 
   /// 在第一幀影像上畫出選取的矩形
@@ -98,21 +98,25 @@ class VideoAnalyzeController extends ChangeNotifier {
 
   /// 分析整段影片的 RGB 平均值
   Future<void> startAnalysis() async {
-    rgbLog = ""; // 清空log
+    rgbLog = "";
+    progress = 0.0;
+    isAnalyzing = true;
+    notifyListeners();
     if (vc == null || selectedRect == null) {
       rgbLog = "請先選擇影片並指定矩形區域\n";
+      progress = null;
+      isAnalyzing = false;
       notifyListeners();
       return;
     }
-    //rgbLog += "開始分析整段影片的 RGB 平均值...\n";
-    //notifyListeners();
 
     final rect = selectedRect!;
     double sumR = 0, sumG = 0, sumB = 0;
     int count = 0;
 
-    // 重新設置到影片開頭
     vc!.set(cv.CAP_PROP_POS_FRAMES, 0);
+    final int totalFrames = vc!.get(cv.CAP_PROP_FRAME_COUNT).toInt();
+    int currentFrame = 0;
 
     while (true) {
       final (success, frame) = await vc!.readAsync();
@@ -122,6 +126,11 @@ class VideoAnalyzeController extends ChangeNotifier {
       }
       if (frame.cols < rect.x + rect.width || frame.rows < rect.y + rect.height) {
         frame.dispose();
+        currentFrame++;
+        progress = (totalFrames > 0)
+            ? (currentFrame / totalFrames).clamp(0.0, 1.0)
+            : 0.0;
+        notifyListeners();
         continue;
       }
       final roi = frame.region(rect);
@@ -132,7 +141,15 @@ class VideoAnalyzeController extends ChangeNotifier {
       count++;
       roi.dispose();
       frame.dispose();
+
+      currentFrame++;
+      progress = (totalFrames > 0)
+          ? (currentFrame / totalFrames).clamp(0.0, 1.0)
+          : 0.0;
+      notifyListeners();
     }
+    progress = 1.0;
+    notifyListeners();
 
     if (count > 0) {
       final avgR = (sumR / count).round();
@@ -143,12 +160,14 @@ class VideoAnalyzeController extends ChangeNotifier {
     } else {
       rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
     }
+    progress = null;
+    isAnalyzing = false;
     notifyListeners();
   }
 
   /// 自動偵測矩形區域（以顏色範圍）
   Future<void> autoCrop() async {
-    rgbLog = ""; // 清空log
+    rgbLog = "";
     if (firstFrameBytes == null) {
       rgbLog = "請先選擇影片以擷取第一幀\n";
       notifyListeners();
@@ -205,8 +224,6 @@ class VideoAnalyzeController extends ChangeNotifier {
       contours.dispose();
       if (largestRect != null) {
         selectedRect = largestRect;
-        // rgbLog +=
-        //     "已自動選取矩形: ${selectedRect!.x}, ${selectedRect!.y}, ${selectedRect!.width}x${selectedRect!.height}\n";
         drawRectangleOnFirstFrame();
       } else {
         rgbLog += "未能找到符合顏色範圍的區域\n";
@@ -226,7 +243,7 @@ class VideoAnalyzeController extends ChangeNotifier {
 
   /// 彈出裁剪頁面讓使用者手動調整選取框
   Future<void> adjustRect(BuildContext context) async {
-    rgbLog = ""; // 清空log
+    rgbLog = "";
     if (firstFrameBytes == null) {
       rgbLog = "請先選擇影片以擷取第一幀";
       notifyListeners();

@@ -23,10 +23,13 @@ class _VideoAnalyzeView extends StatefulWidget {
 }
 
 class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
+  bool _dialogOpen = false;
+  VoidCallback? _progressListener;
+
   void _showLogDialog(BuildContext context, String log, {bool isLoading = false}) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.3),
+      barrierColor: Colors.black.withAlpha((0.3 * 255).toInt()),
       builder: (context) => CustomDialog(
         title: "訊息",
         content: log.isEmpty ? "暫無紀錄" : log,
@@ -37,27 +40,85 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   }
 
   Future<void> _startAnalysisWithLoading(BuildContext context, VideoAnalyzeController controller) async {
-    // 1. 先顯示 loading dialog
-    showDialog(
+    if (_dialogOpen) return;
+    _dialogOpen = true;
+
+    if (controller.vc == null || controller.firstFrameBytes == null) {
+      _showLogDialog(context, "請先上傳影片");
+      _dialogOpen = false;
+      return;
+    }
+
+    _progressListener = () {
+      if (mounted) setState(() {});
+      // 分析結束自動關閉 dialog
+      if (!controller.isAnalyzing && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    };
+
+    controller.addListener(_progressListener!);
+
+    // 1. 先啟動分析（不要 await，讓它在 dialog 顯示時進行）
+    controller.startAnalysis();
+
+    // 2. 顯示進度條 dialog，直到分析結束
+    await showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) => const CustomDialog(
-        title: "分析中",
-        content: "",
-        isLoading: true,
-      ),
+      barrierColor: Colors.black.withAlpha((0.3 * 255).toInt()),
+      builder: (context) {
+        return AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            // 只在分析時顯示
+            if (!controller.isAnalyzing) return const SizedBox.shrink();
+            return CustomDialog(
+              title: "分析中",
+              content: "${((controller.progress ?? 0) * 100).toStringAsFixed(0)}%",
+              showProgressBar: true,
+              progress: controller.progress ?? 0,
+            );
+          },
+        );
+      },
     );
-    // 2. 執行分析
-    await controller.startAnalysis();
-    // 3. 關閉 loading dialog
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
-    // 4. 顯示結果 dialog
+
+    controller.removeListener(_progressListener!);
+    _dialogOpen = false;
+
+    // 3. 顯示結果 dialog
     if (controller.rgbLog.isNotEmpty) {
       _showLogDialog(context, controller.rgbLog);
     }
+  }
+
+  // 新增選項相關狀態
+  final List<String> _honeyTypes = ['龍眼蜜', '荔枝蜜', '百花蜜', '其他'];
+  String? _selectedHoneyType;
+  DateTime? _nanoSilverDate;
+  final TextEditingController _kbrController = TextEditingController();
+
+  // 日期選擇器
+  Future<void> _pickNanoSilverDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _nanoSilverDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      locale: const Locale('zh', 'TW'),
+    );
+    if (picked != null) {
+      setState(() {
+        _nanoSilverDate = picked;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _kbrController.dispose();
+    super.dispose();
   }
 
   @override
@@ -114,7 +175,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.02),
-                // 三個按鈕
+                // ===== 按鈕區塊 =====
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
                   child: Row(
@@ -184,6 +245,113 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                     ],
                   ),
                 ),
+                // ===== 新增選項區塊（Card）移到這裡 =====
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.03,
+                    vertical: 4,
+                  ),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    color: Colors.yellow[50],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              // 蜂蜜種類
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("蜂蜜種類", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    DropdownButtonFormField<String>(
+                                      value: _selectedHoneyType,
+                                      items: _honeyTypes
+                                          .map((type) => DropdownMenuItem(
+                                                value: type,
+                                                child: Text(type),
+                                              ))
+                                          .toList(),
+                                      onChanged: (val) => setState(() => _selectedHoneyType = val),
+                                      decoration: const InputDecoration(
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      ),
+                                      hint: const Text("請選擇"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              // 奈米銀日期
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("奈米製備日期", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    GestureDetector(
+                                      onTap: () => _pickNanoSilverDate(context),
+                                      child: AbsorbPointer(
+                                        child: TextFormField(
+                                          decoration: InputDecoration(
+                                            border: const OutlineInputBorder(),
+                                            isDense: true,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                            hintText: "選擇日期",
+                                            suffixIcon: const Icon(Icons.calendar_today, size: 18),
+                                          ),
+                                          controller: TextEditingController(
+                                            text: _nanoSilverDate == null
+                                                ? ''
+                                                : "${_nanoSilverDate!.year}-${_nanoSilverDate!.month.toString().padLeft(2, '0')}-${_nanoSilverDate!.day.toString().padLeft(2, '0')}",
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // KBr濃度
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("KBr濃度", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      controller: _kbrController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        border: OutlineInputBorder(),
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        hintText: "mg/mL",
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // ===== 選項區塊結束 =====
                 const SizedBox(height: 60),
                 // 內容區塊避免 overflow
                 Expanded(
@@ -196,14 +364,14 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             children: [
                               controller.firstFrameWithRectBytes != null
                                   ? Image.memory(controller.firstFrameWithRectBytes!,
-                                      width: 300, fit: BoxFit.contain)
+                                      width: 200, fit: BoxFit.contain)
                                   : Image.memory(controller.firstFrameBytes!,
-                                      width: 300, fit: BoxFit.contain),
+                                      width: 200, fit: BoxFit.contain),
                               const SizedBox(height: 5),
                             ],
                           )
                         else
-                          // 修改這裡：顯示提示文字
+                          // 顯示提示文字
                           const SizedBox(
                             width: 500,
                             height: 200,

@@ -5,7 +5,7 @@ import 'package:opencv_dart/opencv_dart.dart' as cv;
 import 'package:provider/provider.dart';
 import '../controllers/full_screen_select_controller.dart';
 
-// View
+/// 全屏選取框調整畫面
 class FullScreenSelect extends StatelessWidget {
   const FullScreenSelect({
     super.key,
@@ -34,6 +34,7 @@ class FullScreenSelect extends StatelessWidget {
   }
 }
 
+/// 全屏選取框調整畫面內部視圖
 class _FullScreenSelectView extends StatelessWidget {
   const _FullScreenSelectView({
     required this.imageBytes,
@@ -55,7 +56,7 @@ class _FullScreenSelectView extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFFFFF176), // 黃色系
         title: const Text(
-          '選取分析區域',
+          '調整選取範圍',
           style: TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.w900,
