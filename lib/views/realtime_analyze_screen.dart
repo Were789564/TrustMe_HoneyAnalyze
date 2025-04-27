@@ -86,7 +86,7 @@ class _RealtimeAnalyzeViewState extends State<_RealtimeAnalyzeView> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            "即時拍攝預覽",
+                            "拍攝視窗",
                             style: TextStyle(
                               color: Colors.white, 
                               fontWeight: FontWeight.bold,

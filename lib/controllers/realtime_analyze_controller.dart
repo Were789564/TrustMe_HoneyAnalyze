@@ -50,8 +50,8 @@ class RealtimeAnalyzeController extends ChangeNotifier {
       _isCameraInitialized = true;
       notifyListeners();
       
-      // 初始化後每秒自動擷取一張影像進行預覽
-      _previewTimer = Timer.periodic(const Duration(seconds: 1), (_) => _capturePreviewFrame());
+      // 使用選定間隔進行預覽
+      _previewTimer = Timer.periodic(Duration(milliseconds: _intervalMs), (_) => _capturePreviewFrame());
       // 立即顯示第一張
       await _capturePreviewFrame();
     } catch (e) {
@@ -126,7 +126,8 @@ class RealtimeAnalyzeController extends ChangeNotifier {
     _timer?.cancel();
     _isAnalyzing = false;
     
-    _previewTimer = Timer.periodic(const Duration(seconds: 1), (_) => _capturePreviewFrame());
+    // 使用選定間隔進行預覽
+    _previewTimer = Timer.periodic(Duration(milliseconds: _intervalMs), (_) => _capturePreviewFrame());
     
     notifyListeners();
   }
