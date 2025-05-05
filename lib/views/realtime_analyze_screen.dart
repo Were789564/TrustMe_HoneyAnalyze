@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../controllers/realtime_analyze_controller.dart';
 import 'package:opencv_dart/opencv.dart' as cv;
 import '../views/full_screen_select_screen.dart';
+import '../widgets/analyze_result_panel.dart';
 
 /// 即時分析畫面入口元件
 class RealtimeAnalyzeScreen extends StatelessWidget {
@@ -33,6 +34,12 @@ class _RealtimeAnalyzeViewState extends State<_RealtimeAnalyzeView> {
   DateTime? _nanoSilverDate;
   final TextEditingController _kbrController = TextEditingController();
 
+  // 新增：分析結果與檢測單編號/蜂場名稱
+  String? _analyzeResult;
+  String _inputMode = 'orderId'; // 'orderId' or 'farmName'
+  final TextEditingController _orderIdController = TextEditingController();
+  final TextEditingController _farmNameController = TextEditingController();
+
   /// 選擇奈米銀製備日期
   Future<void> _pickNanoSilverDate(BuildContext context) async {
     final picked = await showDatePicker(
@@ -52,250 +59,266 @@ class _RealtimeAnalyzeViewState extends State<_RealtimeAnalyzeView> {
   @override
   void dispose() {
     _kbrController.dispose();
+    _orderIdController.dispose();
+    _farmNameController.dispose();
     super.dispose();
+  }
+
+  // 新增：分析完成後呼叫此方法
+  void _onAnalyzeFinished() {
+    setState(() {
+      _analyzeResult = "80% 蜂蜜"; // 範例
+    });
   }
 
   /// 顯示全屏拍攝預覽對話框
   void _showCapturePreview(BuildContext context, RealtimeAnalyzeController controller) {
     final screenSize = MediaQuery.of(context).size;
-    
-    // 首先確保相機已经初始化
-    controller.initCamera().then((_) {
-      showDialog(
-        context: context,
-        barrierColor: Colors.black87,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            insetPadding: EdgeInsets.zero,
-            child: SizedBox(
-              width: screenSize.width,
-              height: screenSize.height,
-              child: Column(
-                children: [
-                  // 頂部控制欄
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                    color: Colors.black.withOpacity(0.7),
-                    child: SafeArea(
-                      bottom: false,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "拍攝視窗",
-                            style: TextStyle(
-                              color: Colors.white, 
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
+
+    // 先顯示 Dialog，再初始化相機
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        // 啟動相機初始化（只會執行一次）
+        controller.initCamera();
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: EdgeInsets.zero,
+          child: SizedBox(
+            width: screenSize.width,
+            height: screenSize.height,
+            child: Column(
+              children: [
+                // 頂部控制欄
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  color: Colors.black.withOpacity(0.7),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "拍攝視窗",
+                          style: TextStyle(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                          // RGB 顯示區域
-                          if (controller.lastRGB != null)
-                            Row(
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: Color.fromARGB(255, controller.lastRGB![0],
-                                        controller.lastRGB![1], controller.lastRGB![2]),
-                                    border: Border.all(color: Colors.white),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
+                        ),
+                        // RGB 顯示區域
+                        if (controller.lastRGB != null)
+                          Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Color.fromARGB(255, controller.lastRGB![0],
+                                      controller.lastRGB![1], controller.lastRGB![2]),
+                                  border: Border.all(color: Colors.white),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "R: ${controller.lastRGB![0]}, G: ${controller.lastRGB![1]}, B: ${controller.lastRGB![2]}",
-                                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                                ),
-                              ],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "R: ${controller.lastRGB![0]}, G: ${controller.lastRGB![1]}, B: ${controller.lastRGB![2]}",
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                          onPressed: () {
+                            controller.stopCamera(); // 關閉對話框時停止相機
+                            Navigator.of(dialogContext).pop();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // 影像顯示區域，使用 AnimatedBuilder 監聽控制器變化
+                Expanded(
+                  child: Container(
+                    color: Colors.black,
+                    width: double.infinity,
+                    child: AnimatedBuilder(
+                      animation: controller,
+                      builder: (context, _) {
+                        // 若尚未初始化相機，顯示 loading
+                        if (!controller.isCameraInitialized) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          );
+                        }
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // 顯示前一幀作為背景
+                            if (controller.previousFrameBytes != null && !controller.isAnalyzing)
+                              Image.memory(
+                                controller.previousFrameBytes!,
+                                fit: BoxFit.contain,
+                              ),
+                            // 顯示當前幀
+                            if (controller.currentFrameBytes != null)
+                              Image.memory(
+                                controller.currentFrameBytes!,
+                                fit: BoxFit.contain,
+                              ),
+                            // 沒有幀可顯示時的提示
+                            if (controller.currentFrameBytes == null && controller.previousFrameBytes == null)
+                              const Center(
+                                child: CircularProgressIndicator(color: Colors.white),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                // 底部按鈕區域
+                SafeArea(
+                  top: false,
+                  child: Container(
+                    color: Colors.black.withOpacity(0.7),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        // 自動選取按鈕
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.auto_fix_high, color: Colors.black),
+                            label: const Text(
+                              "自動選取",
+                              style: TextStyle(color: Colors.black, fontSize: 14),
                             ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                            onPressed: () {
-                              controller.stopCamera(); // 關閉對話框時停止相機
-                              Navigator.of(dialogContext).pop();
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.yellow[700],
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await controller.autoSelectRect();
                             },
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  // 影像顯示區域，使用 AnimatedBuilder 監聽控制器變化
-                  Expanded(
-                    child: Container(
-                      color: Colors.black,
-                      width: double.infinity,
-                      child: AnimatedBuilder(
-                        animation: controller,
-                        builder: (context, _) {
-                          return Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // 顯示前一幀作為背景
-                              if (controller.previousFrameBytes != null && !controller.isAnalyzing)
-                                Image.memory(
-                                  controller.previousFrameBytes!,
-                                  fit: BoxFit.contain,
-                                ),
-                              // 顯示當前幀
-                              if (controller.currentFrameBytes != null)
-                                Image.memory(
-                                  controller.currentFrameBytes!,
-                                  fit: BoxFit.contain,
-                                ),
-                              // 沒有幀可顯示時的提示
-                              if (controller.currentFrameBytes == null && controller.previousFrameBytes == null)
-                                const Center(
-                                  child: CircularProgressIndicator(color: Colors.white),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  
-                  // 底部按鈕區域
-                  SafeArea(
-                    top: false,
-                    child: Container(
-                      color: Colors.black.withOpacity(0.7),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      child: Row(
-                        children: [
-                          // 自動選取按鈕
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.auto_fix_high, color: Colors.black),
-                              label: const Text(
-                                "自動選取",
-                                style: TextStyle(color: Colors.black, fontSize: 14),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.yellow[700],
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () async {
-                                await controller.autoSelectRect();
-                              },
+                        ),
+                        const SizedBox(width: 10),
+                        // 調整選取框按鈕 - 修改為使用 FullScreenSelect
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.crop_square, color: Colors.black),
+                            label: const Text(
+                              "調整選取框",
+                              style: TextStyle(color: Colors.black, fontSize: 14),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          // 調整選取框按鈕 - 修改為使用 FullScreenSelect
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.crop_square, color: Colors.black),
-                              label: const Text(
-                                "調整選取框",
-                                style: TextStyle(color: Colors.black, fontSize: 14),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.yellow[700],
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.yellow[700],
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () async {
-                                // 暫停預覽
-                                bool wasAnalyzing = controller.isAnalyzing;
-                                if (wasAnalyzing) controller.stopAnalyze();
-                                
-                                if (controller.lastRawFrameBytes == null) return;
-                                
-                                // 轉換 cv.Rect 為 Flutter 的 Rect 用於初始選取框
-                                Rect? initialRect;
-                                if (controller.selectedRect != null) {
-                                  initialRect = Rect.fromLTWH(
-                                    controller.selectedRect!.x.toDouble(),
-                                    controller.selectedRect!.y.toDouble(),
-                                    controller.selectedRect!.width.toDouble(),
-                                    controller.selectedRect!.height.toDouble(),
-                                  );
-                                }
-                                
-                                // 獲取原始影像尺寸用於比例計算
-                                final rawImage = cv.imdecode(controller.lastRawFrameBytes!, cv.IMREAD_COLOR);
-                                int imageWidth = rawImage.cols;
-                                int imageHeight = rawImage.rows;
-                                rawImage.dispose();
-                                
-                                final rect = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => FullScreenSelect(
-                                      imageBytes: controller.lastRawFrameBytes!,
-                                      initialRect: initialRect,
-                                      imageWidth: imageWidth,
-                                      imageHeight: imageHeight,
-                                    ),
-                                  ),
-                                );
-                                
-                                if (rect is cv.Rect) {
-                                  controller.setSelectedRect(rect);
-                                }
-                                
-                                // 如果之前在分析，恢復分析
-                                if (wasAnalyzing) controller.startAnalyze();
-                              },
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          // 開始/停止分析按鈕
-                          Expanded(
-                            child: AnimatedBuilder(
-                              animation: controller,
-                              builder: (context, _) {
-                                return ElevatedButton.icon(
-                                  icon: controller.isAnalyzing
-                                      ? const Icon(Icons.stop, color: Colors.black)
-                                      : const Icon(Icons.play_arrow, color: Colors.black),
-                                  label: Text(
-                                    controller.isAnalyzing ? "停止分析" : "開始分析",
-                                    style: const TextStyle(color: Colors.black, fontSize: 14),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.yellow[700],
-                                    foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    if (controller.isAnalyzing) {
-                                      controller.stopAnalyze();
-                                    } else {
-                                      controller.startAnalyze();
-                                    }
-                                  },
+                            onPressed: () async {
+                              // 暫停預覽
+                              bool wasAnalyzing = controller.isAnalyzing;
+                              if (wasAnalyzing) controller.stopAnalyze();
+                              
+                              if (controller.lastRawFrameBytes == null) return;
+                              
+                              // 轉換 cv.Rect 為 Flutter 的 Rect 用於初始選取框
+                              Rect? initialRect;
+                              if (controller.selectedRect != null) {
+                                initialRect = Rect.fromLTWH(
+                                  controller.selectedRect!.x.toDouble(),
+                                  controller.selectedRect!.y.toDouble(),
+                                  controller.selectedRect!.width.toDouble(),
+                                  controller.selectedRect!.height.toDouble(),
                                 );
                               }
-                            ),
+                              
+                              // 獲取原始影像尺寸用於比例計算
+                              final rawImage = cv.imdecode(controller.lastRawFrameBytes!, cv.IMREAD_COLOR);
+                              int imageWidth = rawImage.cols;
+                              int imageHeight = rawImage.rows;
+                              rawImage.dispose();
+                              
+                              final rect = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FullScreenSelect(
+                                    imageBytes: controller.lastRawFrameBytes!,
+                                    initialRect: initialRect,
+                                    imageWidth: imageWidth,
+                                    imageHeight: imageHeight,
+                                  ),
+                                ),
+                              );
+                              
+                              if (rect is cv.Rect) {
+                                controller.setSelectedRect(rect);
+                              }
+                              
+                              // 如果之前在分析，恢復分析
+                              if (wasAnalyzing) controller.startAnalyze();
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 10),
+                        // 開始/停止分析按鈕
+                        Expanded(
+                          child: AnimatedBuilder(
+                            animation: controller,
+                            builder: (context, _) {
+                              return ElevatedButton.icon(
+                                icon: controller.isAnalyzing
+                                    ? const Icon(Icons.stop, color: Colors.black)
+                                    : const Icon(Icons.play_arrow, color: Colors.black),
+                                label: Text(
+                                  controller.isAnalyzing ? "停止分析" : "開始分析",
+                                  style: const TextStyle(color: Colors.black, fontSize: 14),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.yellow[700],
+                                  foregroundColor: Colors.black,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (controller.isAnalyzing) {
+                                    controller.stopAnalyze();
+                                    _onAnalyzeFinished(); // 停止分析時顯示結果
+                                    Navigator.of(dialogContext).pop();
+                                  } else {
+                                    controller.startAnalyze();
+                                  }
+                                },
+                              );
+                            }
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        },
-      );
-    });
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -506,7 +529,24 @@ class _RealtimeAnalyzeViewState extends State<_RealtimeAnalyzeView> {
                     ),
                   ),
                 ),
-
+                // ===== 分析結果與輸入區塊 =====
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        // ===== 新增：分析結果顯示區塊 =====
+                        if (_analyzeResult != null)
+                          AnalyzeResultPanel(
+                            analyzeResult: _analyzeResult!,
+                            inputMode: _inputMode,
+                            orderIdController: _orderIdController,
+                            farmNameController: _farmNameController,
+                            onInputModeChanged: (mode) => setState(() => _inputMode = mode),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
