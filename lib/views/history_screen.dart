@@ -14,54 +14,70 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _orderIdController = TextEditingController();
   final TextEditingController _farmNameController = TextEditingController();
 
-  List<dynamic> _allRecords = [];
   List<dynamic> _searchResult = [];
   bool _loading = false;
   String? _error;
 
-  // TODO: 請根據實際情況取得 token
-  final String _token = '請填入token';
-
   @override
   void initState() {
     super.initState();
-    _fetchRecords();
+    // 預設不載入全部資料
   }
 
-  Future<void> _fetchRecords() async {
+  Future<void> _doSearch() async {
     setState(() {
       _loading = true;
       _error = null;
+      _searchResult = [];
     });
     try {
-      final records = await HistoryController.fetchLabelRecords();
-      setState(() {
-        _allRecords = records;
-        _searchResult = records;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = '獲取資料失敗';
-        _loading = false;
-      });
-    }
-  }
-
-  void _doSearch() {
-    setState(() {
       if (_searchMode == 'orderId') {
         final keyword = _orderIdController.text.trim();
-        _searchResult = _allRecords.where((item) =>
-          (item['apply_form']?['apply_id']?.toString() ?? '').contains(keyword)
-        ).toList();
+        if (keyword.isEmpty) {
+          setState(() {
+            _loading = false;
+            _searchResult = [];
+          });
+          return;
+        }
+        final int? applyId = int.tryParse(keyword);
+        if (applyId == null) {
+          setState(() {
+            _loading = false;
+            _error = '請輸入正確的檢測單編號';
+          });
+          return;
+        }
+        final result = await HistoryController.fetchLabelByApplyId(applyId);
+        setState(() {
+          _loading = false;
+          if (result != null) {
+            _searchResult = [result];
+          } else {
+            _searchResult = [];
+          }
+        });
       } else {
         final keyword = _farmNameController.text.trim();
-        _searchResult = _allRecords.where((item) =>
-          (item['account']?['apiray_name'] ?? '').contains(keyword)
-        ).toList();
+        if (keyword.isEmpty) {
+          setState(() {
+            _loading = false;
+            _searchResult = [];
+          });
+          return;
+        }
+        final result = await HistoryController.fetchLabelByApirayName(keyword);
+        setState(() {
+          _loading = false;
+          _searchResult = result;
+        });
       }
-    });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _error = '查詢失敗';
+      });
+    }
   }
 
   @override
@@ -236,13 +252,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               separatorBuilder: (_, __) => const SizedBox(height: 10),
                               itemBuilder: (context, idx) {
                                 final item = _searchResult[idx];
-                                final applyForm = item['apply_form'] ?? {};
-                                final account = item['account'] ?? {};
-                                final orderId = applyForm['apply_id']?.toString() ?? '';
-                                final farmName = account['apiray_name'] ?? '';
+                                // 依據 API 結構調整
+                                final orderId = item['apply_id']?.toString() ?? '';
                                 final result = item['result']?.toString() ?? '';
-                                final date = applyForm['detection_time']?.toString()?.split('T').first ?? '';
-                                // 可根據實際API資料調整細節
+                                final labelIdStart = item['label_id_start']?.toString() ?? '';
+                                final labelIdEnd = item['label_id_end']?.toString() ?? '';
+                                final issueId = item['issue_id']?.toString() ?? '';
+                                final honeyType = item['honey_type']?.toString() ?? '';
+                                final apirayName = item['apiray_name']?.toString() ?? '';
+                                // 純度直接用 result
+                                final purity = result.isNotEmpty
+                                    ? result.replaceAll(RegExp(r'\.0$'), '') + '%'
+                                    : "未知";
                                 return Card(
                                   elevation: 4,
                                   shape: RoundedRectangleBorder(
@@ -252,7 +273,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   child: ListTile(
                                     contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                                     title: Text(
-                                      "$orderId - $farmName",
+                                      "檢測單號: $orderId",
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 18,
@@ -261,186 +282,116 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     ),
                                     subtitle: Padding(
                                       padding: const EdgeInsets.only(top: 6),
-                                      child: Row(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Icon(Icons.calendar_today, size: 18, color: Colors.orange),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            date,
-                                            style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                          ),
-                                          const SizedBox(width: 18),
-                                          const Icon(Icons.emoji_food_beverage, size: 18, color: Colors.orange),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            result,
-                                            style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    trailing: const Icon(Icons.chevron_right, color: Colors.brown, size: 32),
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => Dialog(
-                                          backgroundColor: Colors.yellow[50],
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(24),
-                                            child: SingleChildScrollView(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                          // 新增蜂場名稱
+                                          if (apirayName.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 2),
+                                              child: Row(
                                                 children: [
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.assignment_turned_in, color: Colors.orange, size: 28),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        "$orderId - $farmName",
-                                                        style: const TextStyle(
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 22,
-                                                          color: Colors.brown,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 16),
-                                                  Container(
-                                                    padding: const EdgeInsets.all(12),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.orange[50],
-                                                      borderRadius: BorderRadius.circular(12),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        const Icon(Icons.emoji_food_beverage, color: Colors.orange, size: 24),
-                                                        const SizedBox(width: 8),
-                                                        Text(
-                                                          "分析結果：",
-                                                          style: const TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 18,
-                                                            color: Colors.brown,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          result,
-                                                          style: const TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 20,
-                                                            color: Colors.deepOrange,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.category, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        "蜂蜜種類：${applyForm['honey_type'] ?? ''}",
-                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.scale, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        "容量：${applyForm['capacity'] ?? ''}",
-                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.calendar_today, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        "檢測日期：$date",
-                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.person, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        "申請人：${account['name'] ?? ''}",
-                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.phone, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        "電話：${account['phone'] ?? ''}",
-                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.home, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        "蜂場名稱：$farmName",
-                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Row(
-                                                    children: [
-                                                      const Icon(Icons.location_on, color: Colors.orange, size: 22),
-                                                      const SizedBox(width: 6),
-                                                      Expanded(
-                                                        child: Text(
-                                                          "蜂場地址：${account['apiray_address'] ?? ''}",
-                                                          style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 18),
-                                                  Align(
-                                                    alignment: Alignment.centerRight,
-                                                    child: ElevatedButton(
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: Colors.yellow[700],
-                                                        foregroundColor: Colors.black,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(12),
-                                                        ),
-                                                      ),
-                                                      onPressed: () => Navigator.of(context).pop(),
-                                                      child: const Text("關閉"),
-                                                    ),
+                                                  const Icon(Icons.home, size: 18, color: Colors.orange),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    "蜂場名稱: $apirayName",
+                                                    style: const TextStyle(fontSize: 15, color: Colors.black87),
                                                   ),
                                                 ],
                                               ),
                                             ),
+                                          // 新增蜂蜜種類
+                                          if (honeyType.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 2),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.local_florist, size: 18, color: Colors.orange),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    "蜂蜜種類: $honeyType",
+                                                    style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.confirmation_number, size: 18, color: Colors.orange),
+                                              const SizedBox(width: 6),
+                                              const Text(
+                                                "標章:",
+                                                style: TextStyle(fontSize: 15, color: Colors.black87),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      );
-                                    },
+                                          Padding(
+                                            padding: const EdgeInsets.only(left: 28.0, top: 2, bottom: 2),
+                                            child: Text(
+                                              "$labelIdStart",
+                                              style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.only(left: 28.0, bottom: 2),
+                                            child: Text(
+                                              "$labelIdEnd",
+                                              style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          // 不再顯示 result 行
+                                          // 純度顯示區塊（設計感）
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange[200],
+                                              borderRadius: BorderRadius.circular(8),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.orange.withOpacity(0.2),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.percent, color: Colors.deepOrange, size: 20),
+                                                const SizedBox(width: 6),
+                                                const Text(
+                                                  "純度",
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.brown,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  purity,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.deepOrange,
+                                                    fontSize: 20,
+                                                    letterSpacing: 2,
+                                                    shadows: [
+                                                      Shadow(
+                                                        color: Colors.orangeAccent,
+                                                        offset: Offset(0, 1),
+                                                        blurRadius: 4,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 );
                               },
