@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:opencv_dart/opencv_dart.dart' as cv;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../views/full_screen_select_screen.dart';
 
 /// 影片分析控制器，負責處理影片讀取和分析
@@ -22,6 +25,8 @@ class VideoAnalyzeController extends ChangeNotifier {
   String rgbLog = "";
   double? progress;
   bool isAnalyzing = false;
+
+  static final _storage = const FlutterSecureStorage();
 
   /// 選擇影片檔案並擷取第一幀
   Future<void> pickVideo() async {
@@ -278,5 +283,44 @@ class VideoAnalyzeController extends ChangeNotifier {
   void clearLog() {
     rgbLog = "";
     notifyListeners();
+  }
+
+  static Future<bool> submitLabel({
+    int? applyId,
+    int? needLabel,
+    String? honeyType,
+    String? apirayName,
+  }) async {
+    final url = Uri.parse('http://10.242.32.81:8000/submit_label');
+    // 從 secure storage 取得 account
+    final account = await _storage.read(key: 'account') ?? "";
+    final body = <String, dynamic>{
+      "apply_id": applyId ?? 0,
+      "need_label": needLabel ?? 0,
+      "honey_type": honeyType ?? "",
+      "account": account,
+      "apiray_name": apirayName ?? "",
+    };
+    print("submit_label body: $body");
+    // 若 apiray_name 有值，apply_id 必須為 0；若 apply_id 有值，apiray_name 必須為空
+    if ((apirayName != null && apirayName.isNotEmpty)) {
+      body["apply_id"] = 0;
+    } else {
+      body["apiray_name"] = "";
+    }
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../controllers/video_analyze_controller.dart';
 import 'custom_dialog.dart';
 
 class AnalyzeResultPanel extends StatelessWidget {
@@ -7,14 +8,19 @@ class AnalyzeResultPanel extends StatelessWidget {
   final TextEditingController orderIdController;
   final TextEditingController farmNameController;
   final ValueChanged<String> onInputModeChanged;
+  final TextEditingController applyCountController = TextEditingController();
+  final VideoAnalyzeController controller; // 新增
+  final String honeyType; // 新增
 
-  const AnalyzeResultPanel({
+  AnalyzeResultPanel({
     super.key,
     required this.analyzeResult,
     required this.inputMode,
     required this.orderIdController,
     required this.farmNameController,
     required this.onInputModeChanged,
+    required this.controller,
+    required this.honeyType, // 新增
   });
 
   void _showErrorDialog(BuildContext context, String msg) {
@@ -105,78 +111,109 @@ class AnalyzeResultPanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
+              // 將輸入欄位與按鈕改為直向排列
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: inputMode == 'orderId'
-                        ? TextFormField(
-                            controller: orderIdController,
-                            decoration: InputDecoration(
-                              labelText: "檢測單編號",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              filled: true,
-                              fillColor: Colors.yellow[50],
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  inputMode == 'orderId'
+                      ? TextFormField(
+                          controller: orderIdController,
+                          decoration: InputDecoration(
+                            labelText: "檢測單編號",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          )
-                        : TextFormField(
-                            controller: farmNameController,
-                            decoration: InputDecoration(
-                              labelText: "蜂場名稱",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              filled: true,
-                              fillColor: Colors.yellow[50],
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                            ),
+                            filled: true,
+                            fillColor: Colors.yellow[50],
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 1,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.cloud_upload, color: Colors.black),
-                      label: const Text(
-                        "上傳結果",
-                        style: TextStyle(color: Colors.black, fontSize: 16),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.yellow[700],
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        )
+                      : TextFormField(
+                          controller: farmNameController,
+                          decoration: InputDecoration(
+                            labelText: "蜂場名稱",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.yellow[50],
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
                         ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: applyCountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "申請張數",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      onPressed: () {
-                        final inputValue = inputMode == 'orderId'
-                            ? orderIdController.text
-                            : farmNameController.text;
-                        if (inputValue.trim().isEmpty) {
-                          _showErrorDialog(
-                            context,
-                            inputMode == 'orderId'
-                                ? "請輸入檢測單編號"
-                                : "請輸入蜂場名稱",
-                          );
-                          return;
-                        }
-                        showDialog(
-                          context: context,
-                          builder: (context) => CustomDialog(
-                            title: "成功",
-                            content: "結果已上傳！(${inputMode == 'orderId' ? '檢測單編號' : '蜂場名稱'}: $inputValue)",
-                            onClose: () => Navigator.of(context).pop(),
-                          ),
-                        );
-                      },
+                      filled: true,
+                      fillColor: Colors.yellow[50],
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.cloud_upload, color: Colors.black),
+                    label: const Text(
+                      "上傳結果",
+                      style: TextStyle(color: Colors.black, fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.yellow[700],
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      final inputValue = inputMode == 'orderId'
+                          ? orderIdController.text
+                          : farmNameController.text;
+                      final applyCountValue = applyCountController.text;
+                      if (inputValue.trim().isEmpty) {
+                        _showErrorDialog(
+                          context,
+                          inputMode == 'orderId'
+                              ? "請輸入檢測單編號"
+                              : "請輸入蜂場名稱",
+                        );
+                        return;
+                      }
+                      if (applyCountValue.trim().isEmpty) {
+                        _showErrorDialog(
+                          context,
+                          "請輸入申請張數",
+                        );
+                        return;
+                      }
+                      final applyId = int.tryParse(inputValue) ?? 0;
+                      final needLabel = int.tryParse(applyCountValue) ?? 0;
+                      final apirayName = inputMode == 'farmName' ? inputValue : null;
+                      
+                      final success = await VideoAnalyzeController.submitLabel(
+                        applyId: inputMode == 'orderId' ? applyId : 0,
+                        needLabel: needLabel,
+                        honeyType: honeyType,
+                        apirayName: apirayName,
+                      );
+                      showDialog(
+                        context: context,
+                        builder: (context) => CustomDialog(
+                          title: success ? "成功" : "失敗",
+                          content: success
+                              ? "結果已上傳！(${inputMode == 'orderId' ? '檢測單編號' : '蜂場名稱'}: $inputValue, 申請張數: $applyCountValue)"
+                              : "上傳失敗，請稍後再試",
+                          onClose: () => Navigator.of(context).pop(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

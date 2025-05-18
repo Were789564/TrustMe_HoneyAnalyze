@@ -530,23 +530,23 @@ class _RealtimeAnalyzeViewState extends State<_RealtimeAnalyzeView> {
                   ),
                 ),
                 // ===== 分析結果與輸入區塊 =====
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // ===== 新增：分析結果顯示區塊 =====
-                        if (_analyzeResult != null)
-                          AnalyzeResultPanel(
-                            analyzeResult: _analyzeResult!,
-                            inputMode: _inputMode,
-                            orderIdController: _orderIdController,
-                            farmNameController: _farmNameController,
-                            onInputModeChanged: (mode) => setState(() => _inputMode = mode),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+                // Expanded(
+                //   child: SingleChildScrollView(
+                //     child: Column(
+                //       children: [
+                //         // ===== 新增：分析結果顯示區塊 =====
+                //         if (_analyzeResult != null)
+                //           AnalyzeResultPanel(
+                //             analyzeResult: _analyzeResult!,
+                //             inputMode: _inputMode,
+                //             orderIdController: _orderIdController,
+                //             farmNameController: _farmNameController,
+                //             onInputModeChanged: (mode) => setState(() => _inputMode = mode),
+                //           ),
+                //       ],
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ),

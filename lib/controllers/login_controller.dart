@@ -7,7 +7,7 @@ class LoginController {
   final _storage = const FlutterSecureStorage();
 
   Future<bool> login(User user) async {
-    return true ; // 改: 這裡是測試用的，實際上應該是 false
+    // return true ; // 改: 這裡是測試用的，實際上應該是 false
     final url = Uri.parse('http://10.242.32.81:8000/login');
     final response = await http.post(
       url,
@@ -25,6 +25,8 @@ class LoginController {
       final token = data['access_token'];
       if (token != null) {
         await _storage.write(key: 'token', value: token); // 儲存 JWT token
+        // 新增：儲存 account
+        await _storage.write(key: 'account', value: user.username);
         return true;
       }
     }

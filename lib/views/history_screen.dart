@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../controllers/history_controller.dart';
 
 /// 檢測歷史紀錄顯示畫面
 class HistoryScreen extends StatefulWidget {
@@ -13,45 +14,52 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _orderIdController = TextEditingController();
   final TextEditingController _farmNameController = TextEditingController();
 
-  // 假資料
-  final List<Map<String, String>> _mockHistory = [
-    {
-      'orderId': 'A123',
-      'farmName': '蜂場一號',
-      'result': '80% 蜂蜜',
-      'date': '2024-06-01',
-      'detail': '分析結果：80% 蜂蜜\nKBr濃度：1.2 mg/mL\n蜂蜜種類：龍眼蜜\n奈米製備日期：2024-05-20'
-    },
-    {
-      'orderId': 'B456',
-      'farmName': '蜂場二號',
-      'result': '90% 蜂蜜',
-      'date': '2024-05-28',
-      'detail': '分析結果：90% 蜂蜜\nKBr濃度：1.0 mg/mL\n蜂蜜種類：荔枝蜜\n奈米製備日期：2024-05-10'
-    },
-    {
-      'orderId': 'C789',
-      'farmName': '蜂場三號',
-      'result': '70% 蜂蜜',
-      'date': '2024-05-15',
-      'detail': '分析結果：70% 蜂蜜\nKBr濃度：0.8 mg/mL\n蜂蜜種類：百花蜜\n奈米製備日期：2024-04-30'
-    },
-  ];
+  List<dynamic> _allRecords = [];
+  List<dynamic> _searchResult = [];
+  bool _loading = false;
+  String? _error;
 
-  List<Map<String, String>> _searchResult = [];
+  // TODO: 請根據實際情況取得 token
+  final String _token = '請填入token';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRecords();
+  }
+
+  Future<void> _fetchRecords() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final records = await HistoryController.fetchLabelRecords();
+      setState(() {
+        _allRecords = records;
+        _searchResult = records;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '獲取資料失敗';
+        _loading = false;
+      });
+    }
+  }
 
   void _doSearch() {
     setState(() {
       if (_searchMode == 'orderId') {
         final keyword = _orderIdController.text.trim();
-        _searchResult = _mockHistory
-            .where((item) => item['orderId']!.contains(keyword))
-            .toList();
+        _searchResult = _allRecords.where((item) =>
+          (item['apply_form']?['apply_id']?.toString() ?? '').contains(keyword)
+        ).toList();
       } else {
         final keyword = _farmNameController.text.trim();
-        _searchResult = _mockHistory
-            .where((item) => item['farmName']!.contains(keyword))
-            .toList();
+        _searchResult = _allRecords.where((item) =>
+          (item['account']?['apiray_name'] ?? '').contains(keyword)
+        ).toList();
       }
     });
   }
@@ -211,107 +219,232 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
                 // 搜尋結果區塊
                 Expanded(
-                  child: _searchResult.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "請輸入條件搜尋或無資料",
-                            style: TextStyle(fontSize: 20, color: Colors.black54),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 8),
-                          itemCount: _searchResult.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, idx) {
-                            final item = _searchResult[idx];
-                            return Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null
+                        ? Center(child: Text(_error!, style: const TextStyle(fontSize: 20, color: Colors.red)))
+                        : (_searchResult.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "請輸入條件搜尋或無資料",
+                                style: TextStyle(fontSize: 20, color: Colors.black54),
                               ),
-                              color: Colors.yellow[100],
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                                title: Text(
-                                  "${item['orderId']} - ${item['farmName']}",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                    color: Colors.brown,
+                            )
+                          : ListView.separated(
+                              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 8),
+                              itemCount: _searchResult.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 10),
+                              itemBuilder: (context, idx) {
+                                final item = _searchResult[idx];
+                                final applyForm = item['apply_form'] ?? {};
+                                final account = item['account'] ?? {};
+                                final orderId = applyForm['apply_id']?.toString() ?? '';
+                                final farmName = account['apiray_name'] ?? '';
+                                final result = item['result']?.toString() ?? '';
+                                final date = applyForm['detection_time']?.toString()?.split('T').first ?? '';
+                                // 可根據實際API資料調整細節
+                                return Card(
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
-                                ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.calendar_today, size: 18, color: Colors.orange),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        item['date'] ?? '',
-                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                      ),
-                                      const SizedBox(width: 18),
-                                      const Icon(Icons.emoji_food_beverage, size: 18, color: Colors.orange),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        item['result'] ?? '',
-                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                trailing: const Icon(Icons.chevron_right, color: Colors.brown, size: 32),
-                                onTap: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => Dialog(
-                                      backgroundColor: Colors.yellow[50],
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              "${item['orderId']} - ${item['farmName']}",
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 22,
-                                                color: Colors.brown,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Text(
-                                              item['detail'] ?? '',
-                                              style: const TextStyle(fontSize: 18, color: Colors.black87, height: 1.5),
-                                            ),
-                                            const SizedBox(height: 18),
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child: ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.yellow[700],
-                                                  foregroundColor: Colors.black,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                ),
-                                                onPressed: () => Navigator.of(context).pop(),
-                                                child: const Text("關閉"),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  color: Colors.yellow[100],
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                                    title: Text(
+                                      "$orderId - $farmName",
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: Colors.brown,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
+                                    subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.calendar_today, size: 18, color: Colors.orange),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            date,
+                                            style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                          ),
+                                          const SizedBox(width: 18),
+                                          const Icon(Icons.emoji_food_beverage, size: 18, color: Colors.orange),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            result,
+                                            style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right, color: Colors.brown, size: 32),
+                                    onTap: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => Dialog(
+                                          backgroundColor: Colors.yellow[50],
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(24),
+                                            child: SingleChildScrollView(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.assignment_turned_in, color: Colors.orange, size: 28),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        "$orderId - $farmName",
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 22,
+                                                          color: Colors.brown,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  Container(
+                                                    padding: const EdgeInsets.all(12),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.orange[50],
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        const Icon(Icons.emoji_food_beverage, color: Colors.orange, size: 24),
+                                                        const SizedBox(width: 8),
+                                                        Text(
+                                                          "分析結果：",
+                                                          style: const TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 18,
+                                                            color: Colors.brown,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          result,
+                                                          style: const TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 20,
+                                                            color: Colors.deepOrange,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.category, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        "蜂蜜種類：${applyForm['honey_type'] ?? ''}",
+                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.scale, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        "容量：${applyForm['capacity'] ?? ''}",
+                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.calendar_today, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        "檢測日期：$date",
+                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.person, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        "申請人：${account['name'] ?? ''}",
+                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.phone, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        "電話：${account['phone'] ?? ''}",
+                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.home, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        "蜂場名稱：$farmName",
+                                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.location_on, color: Colors.orange, size: 22),
+                                                      const SizedBox(width: 6),
+                                                      Expanded(
+                                                        child: Text(
+                                                          "蜂場地址：${account['apiray_address'] ?? ''}",
+                                                          style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 18),
+                                                  Align(
+                                                    alignment: Alignment.centerRight,
+                                                    child: ElevatedButton(
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.yellow[700],
+                                                        foregroundColor: Colors.black,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                      ),
+                                                      onPressed: () => Navigator.of(context).pop(),
+                                                      child: const Text("關閉"),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            )
                         ),
                 ),
               ],

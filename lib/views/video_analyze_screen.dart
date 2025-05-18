@@ -98,7 +98,6 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   // 新增選項相關狀態
   final List<String> _honeyTypes = ['龍眼蜜', '荔枝蜜', '百花蜜', '其他'];
   String? _selectedHoneyType;
-  DateTime? _nanoSilverDate;
   final TextEditingController _kbrController = TextEditingController();
 
   // 新增：分析結果與檢測單編號
@@ -108,22 +107,6 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   // 新增：選擇輸入模式
   String _inputMode = 'orderId'; // 'orderId' or 'farmName'
   final TextEditingController _farmNameController = TextEditingController();
-
-  // 日期選擇器
-  Future<void> _pickNanoSilverDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _nanoSilverDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      locale: const Locale('zh', 'TW'),
-    );
-    if (picked != null) {
-      setState(() {
-        _nanoSilverDate = picked;
-      });
-    }
-  }
 
   Future<void> _showVideoDialog(BuildContext context, VideoAnalyzeController controller) async {
     await showDialog(
@@ -337,7 +320,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                     ),
                   ),
                 ),
-                // ===== 選項區塊（Card） =====
+                // ===== 選項區塊（Card）=====
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: screenWidth * 0.04,
@@ -353,9 +336,9 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                       child: Column(
                         children: [
+                          // 只保留蜂蜜種類
                           Row(
                             children: [
-                              // 蜂蜜種類
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,61 +366,6 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              // 奈米銀日期
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("奈米製備日期", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    GestureDetector(
-                                      onTap: () => _pickNanoSilverDate(context),
-                                      child: AbsorbPointer(
-                                        child: TextFormField(
-                                          decoration: InputDecoration(
-                                            border: const OutlineInputBorder(),
-                                            isDense: true,
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                            hintText: "選擇日期",
-                                            suffixIcon: const Icon(Icons.calendar_today, size: 18),
-                                          ),
-                                          controller: TextEditingController(
-                                            text: _nanoSilverDate == null
-                                                ? ''
-                                                : "${_nanoSilverDate!.year}-${_nanoSilverDate!.month.toString().padLeft(2, '0')}-${_nanoSilverDate!.day.toString().padLeft(2, '0')}",
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              // KBr濃度
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("KBr濃度", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    TextFormField(
-                                      controller: _kbrController,
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                        hintText: "mg/mL",
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -456,6 +384,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             orderIdController: _orderIdController,
                             farmNameController: _farmNameController,
                             onInputModeChanged: (mode) => setState(() => _inputMode = mode),
+                            controller: controller,
+                            honeyType: _selectedHoneyType ?? '', // 傳入選擇的蜂蜜種類
                           ),
                         if (_analyzeResult == null)
                           const SizedBox(
