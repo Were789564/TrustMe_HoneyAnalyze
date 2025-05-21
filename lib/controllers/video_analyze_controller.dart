@@ -29,53 +29,57 @@ class VideoAnalyzeController extends ChangeNotifier {
   static final _storage = const FlutterSecureStorage();
 
   /// 選擇影片檔案並擷取第一幀
-  Future<void> pickVideo() async {
-    rgbLog = "";
-    FilePickerResult? result =
-        await FilePicker.platform.pickFiles(type: FileType.video);
-    if (result != null) {
-      final file = result.files.single;
-      final path = file.path;
-      if (path != null) {
-        cv.VideoCapture? vc = cv.VideoCapture.empty();
-        await vc.openAsync(path);
-        if (!(vc.isOpened)) {
-          rgbLog = "Error: Could not open video file $path";
-          this.vc = null;
-          notifyListeners();
-          return;
-        }
-
-        final (success, frame) = await vc.readAsync();
-        if (success && !frame.isEmpty) {
-          final firstFrameBytes = cv.imencode(".png", frame).$2;
-          this.firstFrameBytes = firstFrameBytes;
-          firstFrameWithRectBytes = null;
-
-          final firstFrameMat = cv.imdecode(firstFrameBytes, cv.IMREAD_COLOR);
-          if (!firstFrameMat.isEmpty) {
-            firstFrameWidth = firstFrameMat.cols;
-            firstFrameHeight = firstFrameMat.rows;
-            firstFrameMat.dispose();
-          } else {
-            rgbLog += "無法解碼第一幀以獲取解析度\n";
-          }
-          frame.dispose();
-          await autoCrop();
-        } else {
-          rgbLog += "無法擷取第一幀\n";
-        }
-
-        src = path;
-        width = vc.get(cv.CAP_PROP_FRAME_WIDTH).toInt();
-        height = vc.get(cv.CAP_PROP_FRAME_HEIGHT).toInt();
-        fps = vc.get(cv.CAP_PROP_FPS);
-        this.vc = vc;
+/// 選擇影片檔案並擷取第一幀
+Future<void> pickVideo() async {
+  rgbLog = "";
+  FilePickerResult? result =
+      await FilePicker.platform.pickFiles(type: FileType.video);
+  if (result != null) {
+    final file = result.files.single;
+    final path = file.path;
+    if (path != null) {
+      cv.VideoCapture? vc = cv.VideoCapture.empty();
+      await vc.openAsync(path);
+      if (!(vc.isOpened)) {
+        rgbLog = "Error: Could not open video file $path";
+        this.vc = null;
         notifyListeners();
+        return;
       }
+
+      final (success, frame) = await vc.readAsync();
+      if (success && !frame.isEmpty) {
+        // 先取得原始 Mat
+        cv.Mat firstFrameMat = frame.clone();
+        bool rotated = false;
+        // 如果寬大於高，旋轉90度
+        if (firstFrameMat.cols > firstFrameMat.rows) {
+          final rotatedMat = cv.rotate(firstFrameMat, cv.ROTATE_90_CLOCKWISE);
+          firstFrameMat.dispose();
+          firstFrameMat = rotatedMat;
+          rotated = true;
+        }
+        firstFrameWidth = firstFrameMat.cols;
+        firstFrameHeight = firstFrameMat.rows;
+        // 重新編碼旋轉後的圖片
+        this.firstFrameBytes = cv.imencode(".png", firstFrameMat).$2;
+        firstFrameWithRectBytes = null;
+        firstFrameMat.dispose();
+        frame.dispose();
+        await autoCrop(); // 這裡會用旋轉後的 firstFrameBytes
+      } else {
+        rgbLog += "無法擷取第一幀\n";
+      }
+
+      src = path;
+      width = vc.get(cv.CAP_PROP_FRAME_WIDTH).toInt();
+      height = vc.get(cv.CAP_PROP_FRAME_HEIGHT).toInt();
+      fps = vc.get(cv.CAP_PROP_FPS);
+      this.vc = vc;
+      notifyListeners();
     }
   }
-
+}
   /// 設定選取的矩形區域
   void setSelectedRect(cv.Rect rect) {
     selectedRect = rect;
@@ -181,11 +185,21 @@ class VideoAnalyzeController extends ChangeNotifier {
     cv.Mat? srcMat, hsvMat, mask, openedMask, kernel;
     try {
       srcMat = cv.imdecode(firstFrameBytes!, cv.IMREAD_COLOR);
+      
+      print("srcMat: ${srcMat.cols} x ${srcMat.rows}");
       if (srcMat.isEmpty) {
         rgbLog += "無法解析第一幀影像\n";
         notifyListeners();
         return;
       }
+      // print("srcMat: ${srcMat.cols} x ${srcMat.rows}");
+      // if (srcMat.cols > srcMat.rows) {
+      //   final rotated = cv.rotate(srcMat, cv.ROTATE_90_CLOCKWISE);
+      //   srcMat.dispose();
+      //   srcMat = rotated;
+      //   print("rotated srcMat: ${srcMat.cols} x ${srcMat.rows}");
+      // }
+
       hsvMat = cv.Mat.empty();
       cv.cvtColor(srcMat, cv.COLOR_BGR2HSV, dst: hsvMat);
       mask = cv.Mat.empty();

@@ -50,7 +50,7 @@ class HomeScreen extends StatelessWidget {
                   // 功能按鈕區塊
                   Padding(
                     padding:
-                        EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
+                        EdgeInsets.symmetric(horizontal: screenWidth * 0.09),
                     child: Column(
                       children: [
                         HomeFeatureCard(
@@ -79,15 +79,7 @@ class HomeScreen extends StatelessWidget {
                             Navigator.pushNamed(context, '/history');
                           },
                         ),
-                        SizedBox(height: screenHeight * 0.025),
-                        HomeFeatureCard(
-                          icon: Icons.logout,
-                          title: "登出",
-                          color: Colors.grey,
-                          onTap: () {
-                            // TODO: 執行登出
-                          },
-                        ),
+
                       ],
                     ),
                   ),

@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       "Trust蜜",
                       style: TextStyle(
-                        fontSize: screenWidth * 0.15,
+                        fontSize: screenWidth * 0.10,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         shadows: [

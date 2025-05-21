@@ -157,6 +157,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                     color: Colors.black,
                     width: double.infinity,
                     child: Center(
+                      
                       child: controller.firstFrameWithRectBytes != null
                           ? Image.memory(controller.firstFrameWithRectBytes!, fit: BoxFit.contain)
                           : (controller.firstFrameBytes != null

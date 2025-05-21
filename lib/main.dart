@@ -46,7 +46,6 @@ class MyApp extends StatelessWidget {
         Locale('zh', 'TW'),
         Locale('en', 'US'),
         Locale('en', 'US'),
-        // 其他需要的語系
       ],
       home: LoginScreen(),
     );
