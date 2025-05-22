@@ -28,29 +28,28 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 蜂蜜圖示
-                  Icon(
-                    Icons.local_florist,
-                    size: screenWidth * 0.25,
-                    color: Colors.yellow.shade700,
-                  ),
-                  SizedBox(height: screenHeight * 0.015),
                   // 標題
-                  CircleAvatar(
-                    radius: screenWidth * 0.15,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: screenWidth * 0.15,
-                      color: Colors.orangeAccent,
-                    ),
+                  Image.asset(
+                    'assets/images/logo.png',
+                    width: screenWidth,
+                    height: screenWidth*0.6,
                   ),
-                  SizedBox(height: screenHeight * 0.04),
+                  // CircleAvatar(
+                  //   radius: screenWidth * 0.3,
+                  //   backgroundColor: Colors.transparent,
+                  //   // child: Icon(
+                  //   //   Icons.person,
+                  //   //   size: screenWidth * 0.15,
+                  //   //   color: Colors.orangeAccent,
+                  //   // ),
+                  //   backgroundImage: AssetImage('assets/images/logo.png')
+                  // ),
+                  SizedBox(height: screenHeight * 0.01),
 
                   // 功能按鈕區塊
                   Padding(
                     padding:
-                        EdgeInsets.symmetric(horizontal: screenWidth * 0.09),
+                        EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
                     child: Column(
                       children: [
                         HomeFeatureCard(

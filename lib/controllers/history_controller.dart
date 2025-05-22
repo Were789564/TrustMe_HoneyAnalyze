@@ -14,7 +14,7 @@ class HistoryController {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final decoded = utf8.decode(response.bodyBytes);
-        print(decoded);
+        print("debug:: $decoded");
         return jsonDecode(decoded) as Map<String, dynamic>;
       } else if (response.statusCode == 404) {
         // 找不到標章

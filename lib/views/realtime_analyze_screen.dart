@@ -445,61 +445,7 @@ class _RealtimeAnalyzeViewState extends State<_RealtimeAnalyzeView> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              // 奈米銀日期
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("奈米製備日期", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    GestureDetector(
-                                      onTap: () => _pickNanoSilverDate(context),
-                                      child: AbsorbPointer(
-                                        child: TextFormField(
-                                          decoration: InputDecoration(
-                                            border: const OutlineInputBorder(),
-                                            isDense: true,
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                            hintText: "選擇日期",
-                                            suffixIcon: const Icon(Icons.calendar_today, size: 18),
-                                          ),
-                                          controller: TextEditingController(
-                                            text: _nanoSilverDate == null
-                                                ? ''
-                                                : "${_nanoSilverDate!.year}-${_nanoSilverDate!.month.toString().padLeft(2, '0')}-${_nanoSilverDate!.day.toString().padLeft(2, '0')}",
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              // KBr濃度
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("KBr濃度", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    TextFormField(
-                                      controller: _kbrController,
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                        hintText: "mg/mL",
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+                          
                           // 拍攝間隔
                           Row(
                             children: [

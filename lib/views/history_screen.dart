@@ -257,9 +257,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 final result = item['result']?.toString() ?? '';
                                 final labelIdStart = item['label_id_start']?.toString() ?? '';
                                 final labelIdEnd = item['label_id_end']?.toString() ?? '';
-                                final issueId = item['issue_id']?.toString() ?? '';
+                                
                                 final honeyType = item['honey_type']?.toString() ?? '';
                                 final apirayName = item['apiray_name']?.toString() ?? '';
+                                final dectionTimeRaw = item['dection_time']?.toString() ?? '';
+                                String dectionTime = '';
+                                if (dectionTimeRaw.isNotEmpty) {
+                                  try {
+                                    final dateTime = DateTime.parse(dectionTimeRaw);
+                                    dectionTime = "${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}";
+                                  } catch (e) {
+                                    // Handle parsing error if needed, or leave dectionTime as empty
+                                  }
+                                }
+                                
                                 // 純度直接用 result
                                 final purity = result.isNotEmpty
                                     ? result.replaceAll(RegExp(r'\.0$'), '') + '%'
@@ -310,6 +321,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                   const SizedBox(width: 6),
                                                   Text(
                                                     "蜂蜜種類: $honeyType",
+                                                    style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          // 新增檢測時間
+                                          if (dectionTime.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 2),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.timer_outlined, size: 18, color: Colors.orange),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    "檢測時間: $dectionTime",
                                                     style: const TextStyle(fontSize: 15, color: Colors.black87),
                                                   ),
                                                 ],
