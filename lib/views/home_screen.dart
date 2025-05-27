@@ -23,27 +23,18 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          Center(
-            child: SingleChildScrollView(
+          SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(top: screenHeight * 0.08), // 加入頂部間距
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   // 標題
                   Image.asset(
                     'assets/images/logo.png',
                     width: screenWidth,
-                    height: screenWidth*0.7,
+                    height: screenWidth*0.8,
                   ),
-                  // CircleAvatar(
-                  //   radius: screenWidth * 0.3,
-                  //   backgroundColor: Colors.transparent,
-                  //   // child: Icon(
-                  //   //   Icons.person,
-                  //   //   size: screenWidth * 0.15,
-                  //   //   color: Colors.orangeAccent,
-                  //   // ),
-                  //   backgroundImage: AssetImage('assets/images/logo.png')
-                  // ),
                   SizedBox(height: screenHeight * 0.01),
 
                   // 功能按鈕區塊
@@ -60,15 +51,6 @@ class HomeScreen extends StatelessWidget {
                             Navigator.pushNamed(context, '/video_analyze');
                           },
                         ),
-                        // SizedBox(height: screenHeight * 0.025),
-                        // HomeFeatureCard(
-                        //   icon: Icons.camera_alt,
-                        //   title: "即時分析",
-                        //   color: Colors.amber,
-                        //   onTap: () {
-                        //     Navigator.pushNamed(context, '/realtime_analyze');
-                        //   },
-                        // ),
                         SizedBox(height: screenHeight * 0.025),
                         HomeFeatureCard(
                           icon: Icons.history,
@@ -78,7 +60,6 @@ class HomeScreen extends StatelessWidget {
                             Navigator.pushNamed(context, '/history');
                           },
                         ),
-
                       ],
                     ),
                   ),
