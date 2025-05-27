@@ -8,6 +8,7 @@ class LoginController {
   final _storage = const FlutterSecureStorage();
 
   Future<bool> login(User user, {Function(String)? onError}) async {
+    //return true;
     final url = Uri.parse(ApiConstants.loginEndpoint);
     try {
       final response = await http.post(

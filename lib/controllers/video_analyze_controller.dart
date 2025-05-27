@@ -26,6 +26,7 @@ class VideoAnalyzeController extends ChangeNotifier {
   String rgbLog = "";
   double? progress;
   bool isAnalyzing = false;
+  bool _disposed = false;
 
   static final _storage = const FlutterSecureStorage();
 
@@ -44,7 +45,7 @@ class VideoAnalyzeController extends ChangeNotifier {
         if (!(vc.isOpened)) {
           rgbLog = "Error: Could not open video file $path";
           this.vc = null;
-          notifyListeners();
+          safeNotifyListeners();
           return;
         }
 
@@ -75,7 +76,7 @@ class VideoAnalyzeController extends ChangeNotifier {
         height = vc.get(cv.CAP_PROP_FRAME_HEIGHT).toInt();
         fps = vc.get(cv.CAP_PROP_FPS);
         this.vc = vc;
-        notifyListeners();
+        safeNotifyListeners();
       }
     }
   }
@@ -84,7 +85,7 @@ class VideoAnalyzeController extends ChangeNotifier {
   void setSelectedRect(cv.Rect rect) {
     selectedRect = rect;
     drawRectangleOnFirstFrame();
-    notifyListeners();
+    safeNotifyListeners();
   }
 
   /// 在第一幀影像上畫出選取的矩形
@@ -107,185 +108,190 @@ class VideoAnalyzeController extends ChangeNotifier {
 
   /// 分析整段影片的 RGB 平均值（每秒一幀）
   /// 分析整段影片的 RGB 平均值（每秒一幀）
-Future<void> startAnalysis() async {
-  rgbLog = "";
-  progress = 0.0;
-  isAnalyzing = true;
-  notifyListeners();
+  Future<void> startAnalysis() async {
+    rgbLog = "";
+    progress = 0.0;
+    isAnalyzing = true;
+    safeNotifyListeners();
 
-  if (vc == null || selectedRect == null) {
-    rgbLog = "請先選擇影片並指定矩形區域\n";
-    progress = null;
-    isAnalyzing = false;
-    notifyListeners();
-    return;
-  }
+    if (_disposed) return;
 
-  final rect = selectedRect!;
-  double sumR = 0, sumG = 0, sumB = 0;
-  int count = 0;
-  List<Map<String, dynamic>> secondBySecondData = []; // 改為 Map 格式
-
-  vc!.set(cv.CAP_PROP_POS_FRAMES, 0);
-  final int totalFrames = vc!.get(cv.CAP_PROP_FRAME_COUNT).toInt();
-  final double videoFps = vc!.get(cv.CAP_PROP_FPS);
-
-  final int frameStep = videoFps.round();
-  int currentFrame = 0;
-  int secondCount = 0;
-
-  while (currentFrame < totalFrames) {
-    vc!.set(cv.CAP_PROP_POS_FRAMES, currentFrame.toDouble());
-
-    final (success, frame) = await vc!.readAsync();
-    if (!success || frame.isEmpty) {
-      frame.dispose();
-      break;
+    if (vc == null || selectedRect == null) {
+      rgbLog = "請先選擇影片並指定矩形區域\n";
+      progress = null;
+      isAnalyzing = false;
+      safeNotifyListeners();
+      return;
     }
 
-    cv.Mat processedFrame = frame.clone();
-    if (processedFrame.cols > processedFrame.rows) {
-      final rotatedMat = cv.rotate(processedFrame, cv.ROTATE_90_CLOCKWISE);
-      processedFrame.dispose();
-      processedFrame = rotatedMat;
-    }
+    final rect = selectedRect!;
+    double sumR = 0, sumG = 0, sumB = 0;
+    int count = 0;
+    List<Map<String, dynamic>> secondBySecondData = []; // 改為 Map 格式
 
-    if (processedFrame.cols < rect.x + rect.width ||
-        processedFrame.rows < rect.y + rect.height) {
-      processedFrame.dispose();
-      frame.dispose();
+    vc!.set(cv.CAP_PROP_POS_FRAMES, 0);
+    final int totalFrames = vc!.get(cv.CAP_PROP_FRAME_COUNT).toInt();
+    final double videoFps = vc!.get(cv.CAP_PROP_FPS);
+
+    final int frameStep = videoFps.round();
+    int currentFrame = 0;
+    int secondCount = 0;
+
+    while (currentFrame < totalFrames) {
+      if (_disposed) return;
+      vc!.set(cv.CAP_PROP_POS_FRAMES, currentFrame.toDouble());
+
+      final (success, frame) = await vc!.readAsync();
+      if (!success || frame.isEmpty) {
+        frame.dispose();
+        break;
+      }
+
+      cv.Mat processedFrame = frame.clone();
+      if (processedFrame.cols > processedFrame.rows) {
+        final rotatedMat = cv.rotate(processedFrame, cv.ROTATE_90_CLOCKWISE);
+        processedFrame.dispose();
+        processedFrame = rotatedMat;
+      }
+
+      if (processedFrame.cols < rect.x + rect.width ||
+          processedFrame.rows < rect.y + rect.height) {
+        processedFrame.dispose();
+        frame.dispose();
+        secondCount++;
+        currentFrame += frameStep;
+        progress = (totalFrames > 0)
+            ? (currentFrame / totalFrames).clamp(0.0, 1.0)
+            : 0.0;
+        safeNotifyListeners();
+        continue;
+      }
+
+      final roi = processedFrame.region(rect);
+      final cv.Scalar m = cv.mean(roi);
+
+      final currentR = m.val3.round();
+      final currentG = m.val2.round();
+      final currentB = m.val1.round();
+
+      // 改為儲存 Map 格式
+      secondBySecondData.add({
+        "second": secondCount + 1,
+        "r": currentR,
+        "g": currentG,
+        "b": currentB,
+      });
+
+      sumB += m.val1;
+      sumG += m.val2;
+      sumR += m.val3;
+      count++;
       secondCount++;
+
+      roi.dispose();
+      processedFrame.dispose();
+      frame.dispose();
+
       currentFrame += frameStep;
       progress = (totalFrames > 0)
           ? (currentFrame / totalFrames).clamp(0.0, 1.0)
           : 0.0;
-      notifyListeners();
-      continue;
+      safeNotifyListeners();
     }
 
-    final roi = processedFrame.region(rect);
-    final cv.Scalar m = cv.mean(roi);
+    progress = 1.0;
+    safeNotifyListeners();
 
-    final currentR = m.val3.round();
-    final currentG = m.val2.round();
-    final currentB = m.val1.round();
+    // 顯示每秒的 RGB 值
+    rgbLog += "=== 每秒 RGB 分析結果 ===\n";
+    for (Map<String, dynamic> data in secondBySecondData) {
+      rgbLog +=
+          "第${data['second']}秒: R=${data['r']}, G=${data['g']}, B=${data['b']}\n";
+    }
+    rgbLog += "\n";
 
-    // 改為儲存 Map 格式
-    secondBySecondData.add({
-      "second": secondCount + 1,
-      "r": currentR,
-      "g": currentG,
-      "b": currentB,
-    });
+    if (count > 0) {
+      final avgR = (sumR / count).round();
+      final avgG = (sumG / count).round();
+      final avgB = (sumB / count).round();
+      rgbLog +=
+          "=== 整段影片平均值 ===\n整段影片 ROI 平均 RGB: R=$avgR, G=$avgG, B=$avgB (共 $count 幀，每秒取樣)\n";
 
-    sumB += m.val1;
-    sumG += m.val2;
-    sumR += m.val3;
-    count++;
-    secondCount++;
+      // 分析完成後發送資料到後端
+      final success = await _submitAnalysisData(
+        secondBySecondData: secondBySecondData,
+        averageR: avgR,
+        averageG: avgG,
+        averageB: avgB,
+        totalFrames: count,
+      );
 
-    roi.dispose();
-    processedFrame.dispose();
-    frame.dispose();
-
-    currentFrame += frameStep;
-    progress = (totalFrames > 0)
-        ? (currentFrame / totalFrames).clamp(0.0, 1.0)
-        : 0.0;
-    notifyListeners();
-  }
-
-  progress = 1.0;
-  notifyListeners();
-
-  // 顯示每秒的 RGB 值
-  rgbLog += "=== 每秒 RGB 分析結果 ===\n";
-  for (Map<String, dynamic> data in secondBySecondData) {
-    rgbLog += "第${data['second']}秒: R=${data['r']}, G=${data['g']}, B=${data['b']}\n";
-  }
-  rgbLog += "\n";
-
-  if (count > 0) {
-    final avgR = (sumR / count).round();
-    final avgG = (sumG / count).round();
-    final avgB = (sumB / count).round();
-    rgbLog +=
-        "=== 整段影片平均值 ===\n整段影片 ROI 平均 RGB: R=$avgR, G=$avgG, B=$avgB (共 $count 幀，每秒取樣)\n";
-    
-    // 分析完成後發送資料到後端
-    final success = await _submitAnalysisData(
-      secondBySecondData: secondBySecondData,
-      averageR: avgR,
-      averageG: avgG,
-      averageB: avgB,
-      totalFrames: count,
-    );
-    
-    if (success) {
-      rgbLog += "分析資料已成功上傳\n";
+      if (success) {
+        rgbLog += "分析資料已成功上傳\n";
+      } else {
+        rgbLog += "分析資料上傳失敗\n";
+      }
     } else {
-      rgbLog += "分析資料上傳失敗\n";
+      rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
     }
-  } else {
-    rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
-  }
-  
-  print(rgbLog);
-  progress = null;
-  isAnalyzing = false;
-  notifyListeners();
-}
 
-/// 將分析資料發送到後端
-static Future<bool> _submitAnalysisData({
-  required List<Map<String, dynamic>> secondBySecondData,
-  required int averageR,
-  required int averageG,
-  required int averageB,
-  required int totalFrames,
-}) async {
-  final url = Uri.parse(ApiConstants.analyzeHoneyEndpoint);
-  final account = await _storage.read(key: 'account') ?? "";
-  
-  final body = {
-    "account": account,
-    "analysis_data": {
-      "average_rgb": {
-        "r": averageR,
-        "g": averageG,
-        "b": averageB,
-      },
-      "total_frames": totalFrames,
-      "second_by_second": secondBySecondData,
-    },
-    "timestamp": DateTime.now().toIso8601String(),
-  };
-  
-  try {
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
-    
-    print("analyze_honey response: ${response.statusCode}");
-    print("analyze_honey body: ${response.body}");
-    
-    return response.statusCode == 200 || response.statusCode == 201;
-  } catch (e) {
-    print("analyze_honey error: $e");
-    return false;
+    print(rgbLog);
+    progress = null;
+    isAnalyzing = false;
+    safeNotifyListeners();
   }
-}
+
+  /// 將分析資料發送到後端
+  static Future<bool> _submitAnalysisData({
+    required List<Map<String, dynamic>> secondBySecondData,
+    required int averageR,
+    required int averageG,
+    required int averageB,
+    required int totalFrames,
+  }) async {
+    final url = Uri.parse(ApiConstants.analyzeHoneyEndpoint);
+    final account = await _storage.read(key: 'account') ?? "";
+
+    final body = {
+      "account": account,
+      "analysis_data": {
+        "average_rgb": {
+          "r": averageR,
+          "g": averageG,
+          "b": averageB,
+        },
+        "total_frames": totalFrames,
+        "second_by_second": secondBySecondData,
+      },
+      "timestamp": DateTime.now().toIso8601String(),
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      print("analyze_honey response: ${response.statusCode}");
+      print("analyze_honey body: ${response.body}");
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("analyze_honey error: $e");
+      return false;
+    }
+  }
 
   /// 自動偵測矩形區域（以顏色範圍）
   Future<void> autoCrop() async {
     rgbLog = "";
     if (firstFrameBytes == null) {
       rgbLog = "請先選擇影片以擷取第一幀\n";
-      notifyListeners();
+      safeNotifyListeners();
       return;
     }
+    if (_disposed) return;
     cv.Mat? srcMat, hsvMat, mask, openedMask, kernel;
     try {
       srcMat = cv.imdecode(firstFrameBytes!, cv.IMREAD_COLOR);
@@ -293,7 +299,7 @@ static Future<bool> _submitAnalysisData({
       print("srcMat: ${srcMat.cols} x ${srcMat.rows}");
       if (srcMat.isEmpty) {
         rgbLog += "無法解析第一幀影像\n";
-        notifyListeners();
+        safeNotifyListeners();
         return;
       }
       // print("srcMat: ${srcMat.cols} x ${srcMat.rows}");
@@ -320,7 +326,7 @@ static Future<bool> _submitAnalysisData({
       cv.morphologyEx(mask, cv.MORPH_OPEN, kernel, dst: openedMask);
       if (openedMask.isEmpty) {
         rgbLog += "遮罩處理後為空，無法繼續。\n";
-        notifyListeners();
+        safeNotifyListeners();
         return;
       }
       final contoursResult =
@@ -351,10 +357,10 @@ static Future<bool> _submitAnalysisData({
       } else {
         rgbLog += "未能找到符合顏色範圍的區域\n";
       }
-      notifyListeners();
+      safeNotifyListeners();
     } catch (e) {
       rgbLog += "自動偵測矩形時發生錯誤: $e\n";
-      notifyListeners();
+      safeNotifyListeners();
     } finally {
       srcMat?.dispose();
       hsvMat?.dispose();
@@ -367,11 +373,14 @@ static Future<bool> _submitAnalysisData({
   /// 彈出裁剪頁面讓使用者手動調整選取框
   Future<void> adjustRect(BuildContext context) async {
     rgbLog = "";
-    if (firstFrameBytes == null) {
+    if (firstFrameBytes == null ||
+        firstFrameWidth <= 0 ||
+        firstFrameHeight <= 0) {
       rgbLog = "請先選擇影片以擷取第一幀";
-      notifyListeners();
+      safeNotifyListeners();
       return;
     }
+    if (_disposed) return;
     Rect? initialRect;
     if (selectedRect != null) {
       initialRect = Rect.fromLTWH(
@@ -392,15 +401,19 @@ static Future<bool> _submitAnalysisData({
         ),
       ),
     );
+    if (_disposed) return;
     if (result is cv.Rect) {
-      setSelectedRect(result);
+      selectedRect = result;
+      firstFrameWithRectBytes = null; // 強制刷新
+      drawRectangleOnFirstFrame();
+      safeNotifyListeners();
     }
   }
 
   /// 清除 RGB log
   void clearLog() {
     rgbLog = "";
-    notifyListeners();
+    safeNotifyListeners();
   }
 
   static Future<bool> submitLabel({
@@ -439,6 +452,18 @@ static Future<bool> _submitAnalysisData({
       }
     } catch (e) {
       return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void safeNotifyListeners() {
+    if (!_disposed && hasListeners) {
+      notifyListeners();
     }
   }
 }

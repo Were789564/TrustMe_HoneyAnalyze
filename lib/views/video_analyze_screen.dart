@@ -96,7 +96,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   }
 
   // 新增選項相關狀態
-  final List<String> _honeyTypes = ['龍眼蜜', '荔枝蜜', '百花蜜', '其他'];
+  final List<String> _honeyTypes = ['龍眼蜜'];
   String? _selectedHoneyType;
   final TextEditingController _kbrController = TextEditingController();
 
@@ -107,6 +107,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   // 新增：選擇輸入模式
   String _inputMode = 'orderId'; // 'orderId' or 'farmName'
   final TextEditingController _farmNameController = TextEditingController();
+  final TextEditingController _applyCountController = TextEditingController(); // 新增
 
   Future<void> _showVideoDialog(BuildContext context, VideoAnalyzeController controller) async {
     await showDialog(
@@ -236,6 +237,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
     _kbrController.dispose();
     _orderIdController.dispose();
     _farmNameController.dispose();
+    _applyCountController.dispose(); // 新增
     super.dispose();
   }
 
@@ -252,7 +254,10 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFFFF176), Color(0xFFFFF9C4)], // 黃色系
+                colors: [
+                  Color.fromARGB(255, 255, 235, 180), // 更淺的米色
+                  Color.fromARGB(255, 200, 150, 70),  // 更深的鵝黃色
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -282,7 +287,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                           letterSpacing: 4,
                           shadows: [
                             Shadow(
-                              color: Colors.yellow,
+                              color: Color.fromARGB(255, 238, 218, 145), // 鵝黃色陰影
                               offset: Offset(0, 2),
                               blurRadius: 8,
                             ),
@@ -305,7 +310,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                         style: TextStyle(color: Colors.black, fontSize: 16),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.yellow[700],
+                        backgroundColor: Color.fromARGB(255, 245, 222, 149), // 鵝黃色
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -332,7 +337,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    color: Colors.yellow[50],
+                    color: Color.fromARGB(255, 242, 241, 241), // 米色
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                       child: Column(
@@ -384,9 +389,10 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             inputMode: _inputMode,
                             orderIdController: _orderIdController,
                             farmNameController: _farmNameController,
+                            applyCountController: _applyCountController, // 新增
                             onInputModeChanged: (mode) => setState(() => _inputMode = mode),
                             controller: controller,
-                            honeyType: _selectedHoneyType ?? '', // 傳入選擇的蜂蜜種類
+                            honeyType: _selectedHoneyType ?? '',
                           ),
                         if (_analyzeResult == null)
                           const SizedBox(

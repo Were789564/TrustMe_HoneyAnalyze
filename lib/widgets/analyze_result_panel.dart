@@ -8,9 +8,9 @@ class AnalyzeResultPanel extends StatelessWidget {
   final TextEditingController orderIdController;
   final TextEditingController farmNameController;
   final ValueChanged<String> onInputModeChanged;
-  final TextEditingController applyCountController = TextEditingController();
-  final VideoAnalyzeController controller; // 新增
-  final String honeyType; // 新增
+  final TextEditingController applyCountController; // 改為參數
+  final VideoAnalyzeController controller;
+  final String honeyType;
 
   AnalyzeResultPanel({
     super.key,
@@ -19,8 +19,9 @@ class AnalyzeResultPanel extends StatelessWidget {
     required this.orderIdController,
     required this.farmNameController,
     required this.onInputModeChanged,
+    required this.applyCountController, // 改為必要參數
     required this.controller,
-    required this.honeyType, // 新增
+    required this.honeyType,
   });
 
   void _showErrorDialog(BuildContext context, String msg) {
@@ -57,7 +58,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                   const Text(
                     "分析結果",
                     style: TextStyle(
-                      fontSize: 38,
+                      fontSize: 35,
                       fontWeight: FontWeight.bold,
                       color: Colors.brown,
                       letterSpacing: 2,
@@ -67,7 +68,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                   Text(
                     analyzeResult,
                     style: const TextStyle(
-                      fontSize: 48,
+                      fontSize: 40,
                       fontWeight: FontWeight.w900,
                       color: Colors.orange,
                       shadows: [

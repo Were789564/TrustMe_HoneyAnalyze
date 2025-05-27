@@ -17,9 +17,9 @@ class HomeScreen extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.orangeAccent, Colors.yellowAccent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFDBB5), Color(0xFF8B4513)], // 皮膚色到棕色
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
           ),
@@ -33,7 +33,7 @@ class HomeScreen extends StatelessWidget {
                   Image.asset(
                     'assets/images/logo.png',
                     width: screenWidth,
-                    height: screenWidth*0.8,
+                    height: screenWidth * 0.8,
                   ),
                   SizedBox(height: screenHeight * 0.01),
 
@@ -46,7 +46,8 @@ class HomeScreen extends StatelessWidget {
                         HomeFeatureCard(
                           icon: Icons.movie_filter,
                           title: "影片分析",
-                          color: Colors.deepOrangeAccent,
+                          color: const Color.fromARGB(255, 241, 204, 147),
+                          backgroundColor: Color(0xFF8B4513), // 棕色背景
                           onTap: () {
                             Navigator.pushNamed(context, '/video_analyze');
                           },
@@ -55,7 +56,8 @@ class HomeScreen extends StatelessWidget {
                         HomeFeatureCard(
                           icon: Icons.history,
                           title: "查看檢測紀錄",
-                          color: Colors.purpleAccent,
+                          color: const Color.fromARGB(255, 241, 204, 147),
+                          backgroundColor: Color(0xFF8B4513), // 棕色背景
                           onTap: () {
                             Navigator.pushNamed(context, '/history');
                           },
