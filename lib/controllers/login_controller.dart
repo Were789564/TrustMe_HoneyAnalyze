@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_app/models/user.dart';
+import '../constants/api_constants.dart';
 
 class LoginController {
   final _storage = const FlutterSecureStorage();
 
   Future<bool> login(User user, {Function(String)? onError}) async {
-    final url = Uri.parse('http://10.242.32.81:8000/login');
+    final url = Uri.parse(ApiConstants.loginEndpoint);
     try {
       final response = await http.post(
         url,

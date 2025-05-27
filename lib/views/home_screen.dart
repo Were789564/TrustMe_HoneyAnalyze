@@ -32,7 +32,7 @@ class HomeScreen extends StatelessWidget {
                   Image.asset(
                     'assets/images/logo.png',
                     width: screenWidth,
-                    height: screenWidth*0.6,
+                    height: screenWidth*0.7,
                   ),
                   // CircleAvatar(
                   //   radius: screenWidth * 0.3,
@@ -60,15 +60,15 @@ class HomeScreen extends StatelessWidget {
                             Navigator.pushNamed(context, '/video_analyze');
                           },
                         ),
-                        SizedBox(height: screenHeight * 0.025),
-                        HomeFeatureCard(
-                          icon: Icons.camera_alt,
-                          title: "即時分析",
-                          color: Colors.amber,
-                          onTap: () {
-                            Navigator.pushNamed(context, '/realtime_analyze');
-                          },
-                        ),
+                        // SizedBox(height: screenHeight * 0.025),
+                        // HomeFeatureCard(
+                        //   icon: Icons.camera_alt,
+                        //   title: "即時分析",
+                        //   color: Colors.amber,
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, '/realtime_analyze');
+                        //   },
+                        // ),
                         SizedBox(height: screenHeight * 0.025),
                         HomeFeatureCard(
                           icon: Icons.history,

@@ -7,6 +7,7 @@ import 'package:opencv_dart/opencv_dart.dart' as cv;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../views/full_screen_select_screen.dart';
+import '../constants/api_constants.dart';
 
 /// 影片分析控制器，負責處理影片讀取和分析
 class VideoAnalyzeController extends ChangeNotifier {
@@ -29,57 +30,56 @@ class VideoAnalyzeController extends ChangeNotifier {
   static final _storage = const FlutterSecureStorage();
 
   /// 選擇影片檔案並擷取第一幀
-/// 選擇影片檔案並擷取第一幀
-Future<void> pickVideo() async {
-  rgbLog = "";
-  FilePickerResult? result =
-      await FilePicker.platform.pickFiles(type: FileType.video);
-  if (result != null) {
-    final file = result.files.single;
-    final path = file.path;
-    if (path != null) {
-      cv.VideoCapture? vc = cv.VideoCapture.empty();
-      await vc.openAsync(path);
-      if (!(vc.isOpened)) {
-        rgbLog = "Error: Could not open video file $path";
-        this.vc = null;
-        notifyListeners();
-        return;
-      }
-
-      final (success, frame) = await vc.readAsync();
-      if (success && !frame.isEmpty) {
-        // 先取得原始 Mat
-        cv.Mat firstFrameMat = frame.clone();
-        bool rotated = false;
-        // 如果寬大於高，旋轉90度
-        if (firstFrameMat.cols > firstFrameMat.rows) {
-          final rotatedMat = cv.rotate(firstFrameMat, cv.ROTATE_90_CLOCKWISE);
-          firstFrameMat.dispose();
-          firstFrameMat = rotatedMat;
-          rotated = true;
+  /// 選擇影片檔案並擷取第一幀
+  Future<void> pickVideo() async {
+    rgbLog = "";
+    FilePickerResult? result =
+        await FilePicker.platform.pickFiles(type: FileType.video);
+    if (result != null) {
+      final file = result.files.single;
+      final path = file.path;
+      if (path != null) {
+        cv.VideoCapture? vc = cv.VideoCapture.empty();
+        await vc.openAsync(path);
+        if (!(vc.isOpened)) {
+          rgbLog = "Error: Could not open video file $path";
+          this.vc = null;
+          notifyListeners();
+          return;
         }
-        firstFrameWidth = firstFrameMat.cols;
-        firstFrameHeight = firstFrameMat.rows;
-        // 重新編碼旋轉後的圖片
-        this.firstFrameBytes = cv.imencode(".png", firstFrameMat).$2;
-        firstFrameWithRectBytes = null;
-        firstFrameMat.dispose();
-        frame.dispose();
-        await autoCrop(); // 這裡會用旋轉後的 firstFrameBytes
-      } else {
-        rgbLog += "無法擷取第一幀\n";
-      }
 
-      src = path;
-      width = vc.get(cv.CAP_PROP_FRAME_WIDTH).toInt();
-      height = vc.get(cv.CAP_PROP_FRAME_HEIGHT).toInt();
-      fps = vc.get(cv.CAP_PROP_FPS);
-      this.vc = vc;
-      notifyListeners();
+        final (success, frame) = await vc.readAsync();
+        if (success && !frame.isEmpty) {
+          // 先取得原始 Mat
+          cv.Mat firstFrameMat = frame.clone();
+          // 如果寬大於高，旋轉90度
+          if (firstFrameMat.cols > firstFrameMat.rows) {
+            final rotatedMat = cv.rotate(firstFrameMat, cv.ROTATE_90_CLOCKWISE);
+            firstFrameMat.dispose();
+            firstFrameMat = rotatedMat;
+          }
+          firstFrameWidth = firstFrameMat.cols;
+          firstFrameHeight = firstFrameMat.rows;
+          // 重新編碼旋轉後的圖片
+          this.firstFrameBytes = cv.imencode(".png", firstFrameMat).$2;
+          firstFrameWithRectBytes = null;
+          firstFrameMat.dispose();
+          frame.dispose();
+          await autoCrop(); // 這裡會用旋轉後的 firstFrameBytes
+        } else {
+          rgbLog += "無法擷取第一幀\n";
+        }
+
+        src = path;
+        width = vc.get(cv.CAP_PROP_FRAME_WIDTH).toInt();
+        height = vc.get(cv.CAP_PROP_FRAME_HEIGHT).toInt();
+        fps = vc.get(cv.CAP_PROP_FPS);
+        this.vc = vc;
+        notifyListeners();
+      }
     }
   }
-}
+
   /// 設定選取的矩形區域
   void setSelectedRect(cv.Rect rect) {
     selectedRect = rect;
@@ -105,74 +105,178 @@ Future<void> pickVideo() async {
     }
   }
 
-  /// 分析整段影片的 RGB 平均值
-  Future<void> startAnalysis() async {
-    rgbLog = "";
-    progress = 0.0;
-    isAnalyzing = true;
+  /// 分析整段影片的 RGB 平均值（每秒一幀）
+  /// 分析整段影片的 RGB 平均值（每秒一幀）
+Future<void> startAnalysis() async {
+  rgbLog = "";
+  progress = 0.0;
+  isAnalyzing = true;
+  notifyListeners();
+
+  if (vc == null || selectedRect == null) {
+    rgbLog = "請先選擇影片並指定矩形區域\n";
+    progress = null;
+    isAnalyzing = false;
     notifyListeners();
-    if (vc == null || selectedRect == null) {
-      rgbLog = "請先選擇影片並指定矩形區域\n";
-      progress = null;
-      isAnalyzing = false;
-      notifyListeners();
-      return;
+    return;
+  }
+
+  final rect = selectedRect!;
+  double sumR = 0, sumG = 0, sumB = 0;
+  int count = 0;
+  List<Map<String, dynamic>> secondBySecondData = []; // 改為 Map 格式
+
+  vc!.set(cv.CAP_PROP_POS_FRAMES, 0);
+  final int totalFrames = vc!.get(cv.CAP_PROP_FRAME_COUNT).toInt();
+  final double videoFps = vc!.get(cv.CAP_PROP_FPS);
+
+  final int frameStep = videoFps.round();
+  int currentFrame = 0;
+  int secondCount = 0;
+
+  while (currentFrame < totalFrames) {
+    vc!.set(cv.CAP_PROP_POS_FRAMES, currentFrame.toDouble());
+
+    final (success, frame) = await vc!.readAsync();
+    if (!success || frame.isEmpty) {
+      frame.dispose();
+      break;
     }
 
-    final rect = selectedRect!;
-    double sumR = 0, sumG = 0, sumB = 0;
-    int count = 0;
+    cv.Mat processedFrame = frame.clone();
+    if (processedFrame.cols > processedFrame.rows) {
+      final rotatedMat = cv.rotate(processedFrame, cv.ROTATE_90_CLOCKWISE);
+      processedFrame.dispose();
+      processedFrame = rotatedMat;
+    }
 
-    vc!.set(cv.CAP_PROP_POS_FRAMES, 0);
-    final int totalFrames = vc!.get(cv.CAP_PROP_FRAME_COUNT).toInt();
-    int currentFrame = 0;
-
-    while (true) {
-      final (success, frame) = await vc!.readAsync();
-      if (!success || frame.isEmpty) {
-        frame.dispose();
-        break;
-      }
-      if (frame.cols < rect.x + rect.width || frame.rows < rect.y + rect.height) {
-        frame.dispose();
-        currentFrame++;
-        progress = (totalFrames > 0)
-            ? (currentFrame / totalFrames).clamp(0.0, 1.0)
-            : 0.0;
-        notifyListeners();
-        continue;
-      }
-      final roi = frame.region(rect);
-      final cv.Scalar m = cv.mean(roi);
-      sumB += m.val1;
-      sumG += m.val2;
-      sumR += m.val3;
-      count++;
-      roi.dispose();
+    if (processedFrame.cols < rect.x + rect.width ||
+        processedFrame.rows < rect.y + rect.height) {
+      processedFrame.dispose();
       frame.dispose();
-
-      currentFrame++;
+      secondCount++;
+      currentFrame += frameStep;
       progress = (totalFrames > 0)
           ? (currentFrame / totalFrames).clamp(0.0, 1.0)
           : 0.0;
       notifyListeners();
+      continue;
     }
-    progress = 1.0;
-    notifyListeners();
 
-    if (count > 0) {
-      final avgR = (sumR / count).round();
-      final avgG = (sumG / count).round();
-      final avgB = (sumB / count).round();
-      rgbLog +=
-          "整段影片 ROI 平均 RGB: R=$avgR, G=$avgG, B=$avgB (共 $count 幀)\n";
-    } else {
-      rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
-    }
-    progress = null;
-    isAnalyzing = false;
+    final roi = processedFrame.region(rect);
+    final cv.Scalar m = cv.mean(roi);
+
+    final currentR = m.val3.round();
+    final currentG = m.val2.round();
+    final currentB = m.val1.round();
+
+    // 改為儲存 Map 格式
+    secondBySecondData.add({
+      "second": secondCount + 1,
+      "r": currentR,
+      "g": currentG,
+      "b": currentB,
+    });
+
+    sumB += m.val1;
+    sumG += m.val2;
+    sumR += m.val3;
+    count++;
+    secondCount++;
+
+    roi.dispose();
+    processedFrame.dispose();
+    frame.dispose();
+
+    currentFrame += frameStep;
+    progress = (totalFrames > 0)
+        ? (currentFrame / totalFrames).clamp(0.0, 1.0)
+        : 0.0;
     notifyListeners();
   }
+
+  progress = 1.0;
+  notifyListeners();
+
+  // 顯示每秒的 RGB 值
+  rgbLog += "=== 每秒 RGB 分析結果 ===\n";
+  for (Map<String, dynamic> data in secondBySecondData) {
+    rgbLog += "第${data['second']}秒: R=${data['r']}, G=${data['g']}, B=${data['b']}\n";
+  }
+  rgbLog += "\n";
+
+  if (count > 0) {
+    final avgR = (sumR / count).round();
+    final avgG = (sumG / count).round();
+    final avgB = (sumB / count).round();
+    rgbLog +=
+        "=== 整段影片平均值 ===\n整段影片 ROI 平均 RGB: R=$avgR, G=$avgG, B=$avgB (共 $count 幀，每秒取樣)\n";
+    
+    // 分析完成後發送資料到後端
+    final success = await _submitAnalysisData(
+      secondBySecondData: secondBySecondData,
+      averageR: avgR,
+      averageG: avgG,
+      averageB: avgB,
+      totalFrames: count,
+    );
+    
+    if (success) {
+      rgbLog += "分析資料已成功上傳\n";
+    } else {
+      rgbLog += "分析資料上傳失敗\n";
+    }
+  } else {
+    rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
+  }
+  
+  print(rgbLog);
+  progress = null;
+  isAnalyzing = false;
+  notifyListeners();
+}
+
+/// 將分析資料發送到後端
+static Future<bool> _submitAnalysisData({
+  required List<Map<String, dynamic>> secondBySecondData,
+  required int averageR,
+  required int averageG,
+  required int averageB,
+  required int totalFrames,
+}) async {
+  final url = Uri.parse(ApiConstants.analyzeHoneyEndpoint);
+  final account = await _storage.read(key: 'account') ?? "";
+  
+  final body = {
+    "account": account,
+    "analysis_data": {
+      "average_rgb": {
+        "r": averageR,
+        "g": averageG,
+        "b": averageB,
+      },
+      "total_frames": totalFrames,
+      "second_by_second": secondBySecondData,
+    },
+    "timestamp": DateTime.now().toIso8601String(),
+  };
+  
+  try {
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    
+    print("analyze_honey response: ${response.statusCode}");
+    print("analyze_honey body: ${response.body}");
+    
+    return response.statusCode == 200 || response.statusCode == 201;
+  } catch (e) {
+    print("analyze_honey error: $e");
+    return false;
+  }
+}
 
   /// 自動偵測矩形區域（以顏色範圍）
   Future<void> autoCrop() async {
@@ -185,7 +289,7 @@ Future<void> pickVideo() async {
     cv.Mat? srcMat, hsvMat, mask, openedMask, kernel;
     try {
       srcMat = cv.imdecode(firstFrameBytes!, cv.IMREAD_COLOR);
-      
+
       print("srcMat: ${srcMat.cols} x ${srcMat.rows}");
       if (srcMat.isEmpty) {
         rgbLog += "無法解析第一幀影像\n";
@@ -305,7 +409,7 @@ Future<void> pickVideo() async {
     String? honeyType,
     String? apirayName,
   }) async {
-    final url = Uri.parse('http://10.242.32.81:8000/submit_label');
+    final url = Uri.parse(ApiConstants.submitLabelEndpoint);
     // 從 secure storage 取得 account
     final account = await _storage.read(key: 'account') ?? "";
     final body = <String, dynamic>{

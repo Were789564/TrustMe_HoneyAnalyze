@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../controllers/realtime_analyze_controller.dart';
+import 'realtime_analyze_controller.dart';
 import 'package:opencv_dart/opencv.dart' as cv;
 import '../views/full_screen_select_screen.dart';
 import '../widgets/analyze_result_panel.dart';

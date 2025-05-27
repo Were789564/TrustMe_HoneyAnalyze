@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/views/login_screen.dart';
 import 'package:flutter_app/views/home_screen.dart';
-import 'package:flutter_app/views/realtime_analyze_screen.dart';
+import 'package:flutter_app/unused/realtime_analyze_screen.dart';
 import 'package:flutter_app/views/video_analyze_screen.dart';
 import 'package:flutter_app/views/history_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
