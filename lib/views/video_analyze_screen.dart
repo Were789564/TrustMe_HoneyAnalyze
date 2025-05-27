@@ -91,7 +91,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
     // 3. 顯示結果區塊
     setState(() {
       // 這裡以「80%」蜂蜜為範例，實際可根據 controller 分析結果設定
-      _analyzeResult = "80% 蜂蜜";
+      _analyzeResult = "100% 蜂蜜";
     });
   }
 
@@ -158,12 +158,16 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                     color: Colors.black,
                     width: double.infinity,
                     child: Center(
-                      
-                      child: controller.firstFrameWithRectBytes != null
-                          ? Image.memory(controller.firstFrameWithRectBytes!, fit: BoxFit.contain)
-                          : (controller.firstFrameBytes != null
-                              ? Image.memory(controller.firstFrameBytes!, fit: BoxFit.contain)
-                              : const Text("請先上傳影片", style: TextStyle(color: Colors.white, fontSize: 24))),
+                      child: AnimatedBuilder(
+                        animation: controller,
+                        builder: (context, _) {
+                          return controller.firstFrameWithRectBytes != null
+                              ? Image.memory(controller.firstFrameWithRectBytes!, fit: BoxFit.contain)
+                              : (controller.firstFrameBytes != null
+                                  ? Image.memory(controller.firstFrameBytes!, fit: BoxFit.contain)
+                                  : const Text("請先上傳影片", style: TextStyle(color: Colors.white, fontSize: 24)));
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -184,7 +188,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                               style: TextStyle(color: Colors.black, fontSize: 14),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.yellow[700],
+                              backgroundColor: Color.fromARGB(255, 245, 222, 149), // 鵝黃色
                               foregroundColor: Colors.black,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -193,7 +197,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             ),
                             onPressed: () async {
                               await controller.adjustRect(context);
-                              setState(() {}); // 更新預覽
+                              // 不需要手動 setState，因為使用了 AnimatedBuilder
                             },
                           ),
                         ),
@@ -207,7 +211,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                               style: TextStyle(color: Colors.black, fontSize: 14),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.yellow[700],
+                              backgroundColor: Color.fromARGB(255, 245, 222, 149), // 鵝黃色
                               foregroundColor: Colors.black,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(

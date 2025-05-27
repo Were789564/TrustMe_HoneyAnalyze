@@ -58,7 +58,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                   const Text(
                     "分析結果",
                     style: TextStyle(
-                      fontSize: 35,
+                      fontSize: 30,
                       fontWeight: FontWeight.bold,
                       color: Colors.brown,
                       letterSpacing: 2,
@@ -68,7 +68,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                   Text(
                     analyzeResult,
                     style: const TextStyle(
-                      fontSize: 40,
+                      fontSize: 35,
                       fontWeight: FontWeight.w900,
                       color: Colors.orange,
                       shadows: [
