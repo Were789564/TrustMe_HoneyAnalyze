@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../views/full_screen_select_screen.dart';
 import '../constants/api_constants.dart';
+import '../widgets/custom_dialog.dart';
 
 /// 影片分析控制器，負責處理影片讀取和分析
 class VideoAnalyzeController extends ChangeNotifier {
@@ -27,6 +28,8 @@ class VideoAnalyzeController extends ChangeNotifier {
   double? progress;
   bool isAnalyzing = false;
   bool _disposed = false;
+  bool _cancelled = false;
+  String? selectedHoneyType; // 新增蜂蜜種類選擇
 
   static final _storage = const FlutterSecureStorage();
 
@@ -105,11 +108,149 @@ class VideoAnalyzeController extends ChangeNotifier {
     }
   }
 
+  /// 設定選擇的蜂蜜種類
+  void setHoneyType(String? honeyType) {
+    selectedHoneyType = honeyType;
+    safeNotifyListeners();
+  }
+
+  /// 檢查是否可以開始分析（需要選擇蜂蜜種類）
+  bool canStartAnalysis() {
+    return selectedHoneyType != null && selectedHoneyType!.isNotEmpty;
+  }
+
+  /// 取消分析（帶確認對話框）
+  Future<void> requestCancelAnalysis(BuildContext context) async {
+    if (!isAnalyzing) return;
+
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withAlpha((0.3 * 255).toInt()),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 16,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            constraints: const BoxConstraints(minWidth: 280, maxWidth: 340),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "確認取消",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333),
+                    letterSpacing: 2,
+                    shadows: [
+                      Shadow(
+                        color: Colors.yellowAccent,
+                        offset: Offset(0, 2),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "確定要取消分析嗎？\n取消後將需要重新開始分析。",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF444444),
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[300],
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text(
+                          "繼續分析",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.yellow[700]?.withAlpha((0.9 * 255).toInt()),
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text(
+                          "確定取消",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldCancel == true) {
+      _performCancelAnalysis();
+    }
+  }
+
+  bool get isCancelled => _cancelled; // 新增 getter 讓外部可以檢查取消狀態
+
+  /// 執行實際的取消分析
+  void _performCancelAnalysis() {
+    if (isAnalyzing) {
+      _cancelled = true;
+      rgbLog += "分析已取消\n";
+      progress = null;
+      isAnalyzing = false;
+      safeNotifyListeners();
+    }
+  }
+
   /// 分析整段影片的 RGB 平均值（每秒一幀）
-  Future<void> startAnalysis() async {
+  Future<void> startAnalysis(BuildContext context) async {
+    // 檢查是否選擇了蜂蜜種類
+    if (!canStartAnalysis()) {
+      showDialog(
+        context: context,
+        barrierColor: Colors.black.withAlpha((0.3 * 255).toInt()),
+        builder: (context) => CustomDialog(
+          title: "錯誤",
+          content: "請先選擇蜂蜜種類再開始分析",
+          onClose: () => Navigator.of(context).pop(),
+        ),
+      );
+      return;
+    }
+
     rgbLog = "";
     progress = 0.0;
     isAnalyzing = true;
+    _cancelled = false; // 重置取消狀態
     safeNotifyListeners();
 
     if (_disposed) return;
@@ -125,7 +266,7 @@ class VideoAnalyzeController extends ChangeNotifier {
     final rect = selectedRect!;
     double sumR = 0, sumG = 0, sumB = 0;
     int count = 0;
-    List<Map<String, dynamic>> secondBySecondData = []; // 改為 Map 格式
+    List<Map<String, dynamic>> secondBySecondData = [];
 
     vc!.set(cv.CAP_PROP_POS_FRAMES, 0);
     final int totalFrames = vc!.get(cv.CAP_PROP_FRAME_COUNT).toInt();
@@ -136,7 +277,17 @@ class VideoAnalyzeController extends ChangeNotifier {
     int secondCount = 0;
 
     while (currentFrame < totalFrames) {
-      if (_disposed) return;
+      if (_disposed || _cancelled) {
+        // 清理資源並退出
+        progress = null;
+        isAnalyzing = false;
+        if (_cancelled) {
+          rgbLog += "分析已被用戶取消\n";
+        }
+        safeNotifyListeners();
+        return;
+      }
+      
       vc!.set(cv.CAP_PROP_POS_FRAMES, currentFrame.toDouble());
 
       final (success, frame) = await vc!.readAsync();
@@ -172,7 +323,6 @@ class VideoAnalyzeController extends ChangeNotifier {
       final currentG = m.val2.round();
       final currentB = m.val1.round();
 
-      // 改為儲存 Map 格式
       secondBySecondData.add({
         "second": secondCount + 1,
         "r": currentR,
@@ -197,7 +347,22 @@ class VideoAnalyzeController extends ChangeNotifier {
       safeNotifyListeners();
     }
 
+    // 檢查是否被取消
+    if (_cancelled || _disposed) {
+      progress = null;
+      isAnalyzing = false;
+      if (_cancelled) {
+        rgbLog += "分析已被用戶取消\n";
+      }
+      safeNotifyListeners();
+      return;
+    }
+
     progress = 1.0;
+    safeNotifyListeners();
+
+    // 立即設置 isAnalyzing 為 false，避免卡在 100%
+    isAnalyzing = false;
     safeNotifyListeners();
 
     // 顯示每秒的 RGB 值
@@ -222,6 +387,7 @@ class VideoAnalyzeController extends ChangeNotifier {
         averageG: avgG,
         averageB: avgB,
         totalFrames: count,
+        honeyType: selectedHoneyType,
       );
 
       if (success) {
@@ -246,6 +412,7 @@ class VideoAnalyzeController extends ChangeNotifier {
     required int averageG,
     required int averageB,
     required int totalFrames,
+    String? honeyType,
   }) async {
     final url = Uri.parse(ApiConstants.analyzeHoneyEndpoint);
     final account = await _storage.read(key: 'account') ?? "";
@@ -260,6 +427,7 @@ class VideoAnalyzeController extends ChangeNotifier {
         },
         "total_frames": totalFrames,
         "second_by_second": secondBySecondData,
+        "honey_type": honeyType ?? "",
       },
       "timestamp": DateTime.now().toIso8601String(),
     };
@@ -456,6 +624,7 @@ class VideoAnalyzeController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _cancelled = true; // 確保取消所有進行中的操作
     super.dispose();
   }
 

@@ -50,6 +50,9 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
       return;
     }
 
+    // 同步蜂蜜種類到控制器
+    controller.setHoneyType(_selectedHoneyType);
+
     _progressListener = () {
       if (mounted) setState(() {});
       // 分析結束自動關閉 dialog
@@ -60,8 +63,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
 
     controller.addListener(_progressListener!);
 
-    // 1. 先啟動分析（不要 await，讓它在 dialog 顯示時進行）
-    controller.startAnalysis();
+    // 1. 先啟動分析（傳入 context 參數）
+    controller.startAnalysis(context);
 
     // 2. 顯示進度條 dialog，直到分析結束
     await showDialog(
@@ -74,11 +77,71 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
           builder: (context, _) {
             // 只在分析時顯示
             if (!controller.isAnalyzing) return const SizedBox.shrink();
-            return CustomDialog(
-              title: "分析中",
-              content: "${((controller.progress ?? 0) * 100).toStringAsFixed(0)}%",
-              showProgressBar: true,
-              progress: controller.progress ?? 0,
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              elevation: 16,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                constraints: const BoxConstraints(minWidth: 280, maxWidth: 340),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "分析中",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF333333),
+                        letterSpacing: 2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.yellowAccent,
+                            offset: Offset(0, 2),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(
+                      minHeight: 8,
+                      backgroundColor: const Color(0xFFFFF9C4), // 淺黃色背景
+                      color: Colors.yellow[700], // 黃色進度條
+                      value: controller.progress ?? 0,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "${((controller.progress ?? 0) * 100).toStringAsFixed(0)}%",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Color(0xFF444444),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.yellow[700]?.withAlpha((0.9 * 255).toInt()),
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 0,
+                        ),
+                        onPressed: () => controller.requestCancelAnalysis(context),
+                        child: const Text(
+                          "取消",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             );
           },
         );
@@ -88,11 +151,17 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
     controller.removeListener(_progressListener!);
     _dialogOpen = false;
 
-    // 3. 顯示結果區塊
-    setState(() {
-      // 這裡以「80%」蜂蜜為範例，實際可根據 controller 分析結果設定
-      _analyzeResult = "100% 蜂蜜";
-    });
+    // 3. 檢查分析是否正常完成（未被取消且進度條已結束）
+    if (!controller.isCancelled && !controller.isAnalyzing) {
+      setState(() {
+        _analyzeResult = "100% 蜂蜜";
+      });
+    } else if (controller.isCancelled) {
+      // 如果被取消，清除任何現有的分析結果
+      setState(() {
+        _analyzeResult = null;
+      });
+    }
   }
 
   // 新增選項相關狀態
@@ -322,6 +391,15 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                         ),
                       ),
                       onPressed: () async {
+                        // 檢查是否選擇了蜂蜜種類
+                        if (_selectedHoneyType == null || _selectedHoneyType!.isEmpty) {
+                          _showLogDialog(context, "請選擇蜂蜜種類");
+                          return;
+                        }
+                        
+                        // 同步蜂蜜種類到控制器
+                        controller.setHoneyType(_selectedHoneyType);
+                        
                         await controller.pickVideo();
                         if (controller.firstFrameBytes != null) {
                           await _showVideoDialog(context, controller);
@@ -363,7 +441,11 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                                                 child: Text(type),
                                               ))
                                           .toList(),
-                                      onChanged: (val) => setState(() => _selectedHoneyType = val),
+                                      onChanged: (val) {
+                                        setState(() => _selectedHoneyType = val);
+                                        // 立即同步到控制器
+                                        controller.setHoneyType(val);
+                                      },
                                       decoration: const InputDecoration(
                                         border: OutlineInputBorder(),
                                         isDense: true,
