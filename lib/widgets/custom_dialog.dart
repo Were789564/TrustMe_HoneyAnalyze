@@ -23,7 +23,7 @@ class CustomDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white.withAlpha((0.85 * 255).toInt()),
+      backgroundColor: Colors.white.withAlpha((1 * 255).toInt()),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       elevation: 16,
       child: Container(

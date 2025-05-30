@@ -294,7 +294,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 
                                 // 純度直接用 result
                                 final purity = result.isNotEmpty
-                                    ? result.replaceAll(RegExp(r'\.0$'), '') + '%'
+                                    ? result.replaceAll(RegExp(r'\.0$'), '')
                                     : "未知";
                                 return Card(
                                   elevation: 4,
@@ -413,7 +413,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                const Icon(Icons.percent, color: Color.fromARGB(255, 160, 120, 60), size: 20), // 棕色系
+                                                const Icon(Icons.local_florist, color: Color.fromARGB(255, 160, 120, 60), size: 20), // 棕色系
                                                 const SizedBox(width: 6),
                                                 const Text(
                                                   "純度",
@@ -425,7 +425,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  purity,
+                                                  '$purity%',
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     color: Color.fromARGB(255, 160, 120, 60), // 棕色系

@@ -44,7 +44,8 @@ class AnalyzeResultPanel extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: cardHorizontalPadding, vertical: 16),
+          padding: EdgeInsets.symmetric(
+              horizontal: cardHorizontalPadding, vertical: 16),
           child: Card(
             elevation: 6,
             shape: RoundedRectangleBorder(
@@ -86,7 +87,8 @@ class AnalyzeResultPanel extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: cardHorizontalPadding, vertical: 16),
+          padding: EdgeInsets.symmetric(
+              horizontal: cardHorizontalPadding, vertical: 16),
           child: Column(
             children: [
               Row(
@@ -127,7 +129,8 @@ class AnalyzeResultPanel extends StatelessWidget {
                             filled: true,
                             fillColor: Colors.yellow[50],
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 14),
                           ),
                         )
                       : TextFormField(
@@ -140,7 +143,8 @@ class AnalyzeResultPanel extends StatelessWidget {
                             filled: true,
                             fillColor: Colors.yellow[50],
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 14),
                           ),
                         ),
                   const SizedBox(height: 16),
@@ -155,7 +159,8 @@ class AnalyzeResultPanel extends StatelessWidget {
                       filled: true,
                       fillColor: Colors.yellow[50],
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -181,9 +186,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                       if (inputValue.trim().isEmpty) {
                         _showErrorDialog(
                           context,
-                          inputMode == 'orderId'
-                              ? "請輸入檢測單編號"
-                              : "請輸入蜂場名稱",
+                          inputMode == 'orderId' ? "請輸入檢測單編號" : "請輸入蜂場名稱",
                         );
                         return;
                       }
@@ -196,8 +199,9 @@ class AnalyzeResultPanel extends StatelessWidget {
                       }
                       final applyId = int.tryParse(inputValue) ?? 0;
                       final needLabel = int.tryParse(applyCountValue) ?? 0;
-                      final apirayName = inputMode == 'farmName' ? inputValue : null;
-                      
+                      final apirayName =
+                          inputMode == 'farmName' ? inputValue : null;
+
                       final success = await VideoAnalyzeController.submitLabel(
                         applyId: inputMode == 'orderId' ? applyId : 0,
                         needLabel: needLabel,
@@ -209,7 +213,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                         builder: (context) => CustomDialog(
                           title: success ? "成功" : "失敗",
                           content: success
-                              ? "結果已上傳！(${inputMode == 'orderId' ? '檢測單編號' : '蜂場名稱'}: $inputValue, 申請張數: $applyCountValue)"
+                              ? "• ${inputMode == 'orderId' ? '檢測單編號' : '蜂場名稱'}: $inputValue\n• 申請張數: $applyCountValue"
                               : "上傳失敗，請稍後再試",
                           onClose: () => Navigator.of(context).pop(),
                         ),

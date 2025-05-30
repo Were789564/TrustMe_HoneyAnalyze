@@ -31,7 +31,6 @@ class VideoAnalyzeController extends ChangeNotifier {
   static final _storage = const FlutterSecureStorage();
 
   /// 選擇影片檔案並擷取第一幀
-  /// 選擇影片檔案並擷取第一幀
   Future<void> pickVideo() async {
     rgbLog = "";
     FilePickerResult? result =
@@ -106,7 +105,6 @@ class VideoAnalyzeController extends ChangeNotifier {
     }
   }
 
-  /// 分析整段影片的 RGB 平均值（每秒一幀）
   /// 分析整段影片的 RGB 平均值（每秒一幀）
   Future<void> startAnalysis() async {
     rgbLog = "";
