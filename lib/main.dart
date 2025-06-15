@@ -24,7 +24,6 @@ class MyApp extends StatelessWidget {
           '/realtime_analyze': (context) => RealtimeAnalyzeScreen(), // 即時分析頁
           '/video_analyze': (context) => VideoAnalyzeScreen(), // 影片分析頁
           '/history': (context) => HistoryScreen(), // 檢測紀錄頁
-          // 其他路由
       },
       theme: ThemeData(
         colorScheme: ColorScheme.light(
