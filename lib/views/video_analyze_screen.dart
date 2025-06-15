@@ -178,6 +178,9 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   final TextEditingController _farmNameController = TextEditingController();
   final TextEditingController _applyCountController = TextEditingController(); // 新增
 
+  // 新增：影片建立時間
+  DateTime? _videoCreatedDate;
+
   Future<void> _showVideoDialog(BuildContext context, VideoAnalyzeController controller) async {
     await showDialog(
       context: context,
@@ -305,6 +308,39 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
     );
   }
 
+  // 新增：選擇日期時間的方法
+  Future<void> _selectDateTime(BuildContext context, VideoAnalyzeController controller) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _videoCreatedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      locale: const Locale('zh', 'TW'),
+    );
+    
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(_videoCreatedDate ?? DateTime.now()),
+      );
+      
+      if (pickedTime != null) {
+        final DateTime finalDateTime = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
+        
+        setState(() {
+          _videoCreatedDate = finalDateTime;
+        });
+        controller.setVideoCreatedDate(finalDateTime);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _kbrController.dispose();
@@ -371,7 +407,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // ===== 只保留上傳影片按鈕 =====
+                // ===== 上傳影片按鈕（固定在上方）=====
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 8),
                   child: SizedBox(
@@ -397,8 +433,15 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                           return;
                         }
                         
-                        // 同步蜂蜜種類到控制器
+                        // 檢查是否選擇了影片建立時間
+                        if (_videoCreatedDate == null) {
+                          _showLogDialog(context, "請選擇影片建立時間");
+                          return;
+                        }
+                        
+                        // 同步蜂蜜種類和影片建立時間到控制器
                         controller.setHoneyType(_selectedHoneyType);
+                        controller.setVideoCreatedDate(_videoCreatedDate);
                         
                         await controller.pickVideo();
                         if (controller.firstFrameBytes != null) {
@@ -408,74 +451,109 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                     ),
                   ),
                 ),
-                // ===== 選項區塊（Card）=====
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.04,
-                    vertical: 4,
-                  ),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    color: Color.fromARGB(255, 242, 241, 241), // 米色
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                      child: Column(
-                        children: [
-                          // 只保留蜂蜜種類
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("蜂蜜種類", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    DropdownButtonFormField<String>(
-                                      value: _selectedHoneyType,
-                                      items: _honeyTypes
-                                          .map((type) => DropdownMenuItem(
-                                                value: type,
-                                                child: Text(type),
-                                              ))
-                                          .toList(),
-                                      onChanged: (val) {
-                                        setState(() => _selectedHoneyType = val);
-                                        // 立即同步到控制器
-                                        controller.setHoneyType(val);
-                                      },
-                                      decoration: const InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                      ),
-                                      hint: const Text("請選擇"),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // ===== 主內容區塊（避免 overflow）=====
+                // ===== 可滾動的主內容區塊 =====
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
+                        // ===== 選項區塊（Card）移到可滾動區域 =====
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.04,
+                            vertical: 4,
+                          ),
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            color: Color.fromARGB(255, 242, 241, 241), // 米色
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                              child: Column(
+                                children: [
+                                  // 蜂蜜種類
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text("蜂蜜種類", style: TextStyle(fontWeight: FontWeight.bold)),
+                                            const SizedBox(height: 4),
+                                            DropdownButtonFormField<String>(
+                                              value: _selectedHoneyType,
+                                              items: _honeyTypes
+                                                  .map((type) => DropdownMenuItem(
+                                                        value: type,
+                                                        child: Text(type),
+                                                      ))
+                                                  .toList(),
+                                              onChanged: (val) {
+                                                setState(() => _selectedHoneyType = val);
+                                                // 立即同步到控制器
+                                                controller.setHoneyType(val);
+                                              },
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                isDense: true,
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                              ),
+                                              hint: const Text("請選擇"),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // 影片建立時間選擇
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("影片建立時間", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 4),
+                                      InkWell(
+                                        onTap: () => _selectDateTime(context, controller),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Colors.grey),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                _videoCreatedDate != null
+                                                    ? "${_videoCreatedDate!.year}/${_videoCreatedDate!.month.toString().padLeft(2, '0')}/${_videoCreatedDate!.day.toString().padLeft(2, '0')} ${_videoCreatedDate!.hour.toString().padLeft(2, '0')}:${_videoCreatedDate!.minute.toString().padLeft(2, '0')}"
+                                                    : "請選擇影片建立時間",
+                                                style: TextStyle(
+                                                  color: _videoCreatedDate != null ? Colors.black : Colors.grey[600],
+                                                ),
+                                              ),
+                                              Icon(Icons.calendar_today, color: Colors.grey[600]),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 24),
+                        // 分析結果區塊
                         if (_analyzeResult != null)
                           AnalyzeResultPanel(
                             analyzeResult: _analyzeResult!,
                             inputMode: _inputMode,
                             orderIdController: _orderIdController,
                             farmNameController: _farmNameController,
-                            applyCountController: _applyCountController, // 新增
+                            applyCountController: _applyCountController,
                             onInputModeChanged: (mode) => setState(() => _inputMode = mode),
                             controller: controller,
                             honeyType: _selectedHoneyType ?? '',
@@ -491,6 +569,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                               ),
                             ),
                           ),
+                        // 底部留白
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),

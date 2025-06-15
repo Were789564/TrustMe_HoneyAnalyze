@@ -30,6 +30,7 @@ class VideoAnalyzeController extends ChangeNotifier {
   bool _disposed = false;
   bool _cancelled = false;
   String? selectedHoneyType; // 新增蜂蜜種類選擇
+  DateTime? videoCreatedDate;
 
   static final _storage = const FlutterSecureStorage();
 
@@ -42,6 +43,7 @@ class VideoAnalyzeController extends ChangeNotifier {
       final file = result.files.single;
       final path = file.path;
       if (path != null) {
+
         cv.VideoCapture? vc = cv.VideoCapture.empty();
         await vc.openAsync(path);
         if (!(vc.isOpened)) {
@@ -111,6 +113,12 @@ class VideoAnalyzeController extends ChangeNotifier {
   /// 設定選擇的蜂蜜種類
   void setHoneyType(String? honeyType) {
     selectedHoneyType = honeyType;
+    safeNotifyListeners();
+  }
+
+  /// 設定影片建立時間
+  void setVideoCreatedDate(DateTime? date) {
+    videoCreatedDate = date;
     safeNotifyListeners();
   }
 
@@ -388,6 +396,7 @@ class VideoAnalyzeController extends ChangeNotifier {
         averageB: avgB,
         totalFrames: count,
         honeyType: selectedHoneyType,
+        videoCreatedDate: videoCreatedDate,
       );
 
       if (success) {
@@ -399,7 +408,7 @@ class VideoAnalyzeController extends ChangeNotifier {
       rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
     }
 
-    print(rgbLog);
+    //print(rgbLog);
     progress = null;
     isAnalyzing = false;
     safeNotifyListeners();
@@ -413,6 +422,7 @@ class VideoAnalyzeController extends ChangeNotifier {
     required int averageB,
     required int totalFrames,
     String? honeyType,
+    DateTime? videoCreatedDate,
   }) async {
     final url = Uri.parse(ApiConstants.analyzeHoneyEndpoint);
     final account = await _storage.read(key: 'account') ?? "";
@@ -428,6 +438,7 @@ class VideoAnalyzeController extends ChangeNotifier {
         "total_frames": totalFrames,
         "second_by_second": secondBySecondData,
         "honey_type": honeyType ?? "",
+        "video_created_date": videoCreatedDate?.toIso8601String(), // 修改欄位名稱
       },
       "timestamp": DateTime.now().toIso8601String(),
     };
@@ -441,6 +452,7 @@ class VideoAnalyzeController extends ChangeNotifier {
 
       print("analyze_honey response: ${response.statusCode}");
       print("analyze_honey body: ${response.body}");
+      print("Sent video_created_date: ${videoCreatedDate?.toIso8601String()}"); // 新增日誌
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
