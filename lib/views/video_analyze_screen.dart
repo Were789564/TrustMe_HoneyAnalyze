@@ -27,7 +27,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   bool _dialogOpen = false;
   VoidCallback? _progressListener;
 
-  void _showLogDialog(BuildContext context, String log, {bool isLoading = false}) {
+  void _showLogDialog(BuildContext context, String log,
+      {bool isLoading = false}) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withAlpha((0.3 * 255).toInt()),
@@ -40,7 +41,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
     );
   }
 
-  Future<void> _startAnalysisWithLoading(BuildContext context, VideoAnalyzeController controller) async {
+  Future<void> _startAnalysisWithLoading(
+      BuildContext context, VideoAnalyzeController controller) async {
     if (_dialogOpen) return;
     _dialogOpen = true;
 
@@ -79,7 +81,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
             if (!controller.isAnalyzing) return const SizedBox.shrink();
             return Dialog(
               backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
               elevation: 16,
               child: Container(
                 padding: const EdgeInsets.all(24),
@@ -124,7 +127,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.yellow[700]?.withAlpha((0.9 * 255).toInt()),
+                          backgroundColor: Colors.yellow[700]
+                              ?.withAlpha((0.9 * 255).toInt()),
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -132,10 +136,12 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           elevation: 0,
                         ),
-                        onPressed: () => controller.requestCancelAnalysis(context),
+                        onPressed: () =>
+                            controller.requestCancelAnalysis(context),
                         child: const Text(
                           "取消",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                       ),
                     ),
@@ -151,16 +157,23 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
     controller.removeListener(_progressListener!);
     _dialogOpen = false;
 
-    // 3. 檢查分析是否正常完成（未被取消且進度條已結束）
+    // 3. 檢查分析是否正常完成並更新結果
     if (!controller.isCancelled && !controller.isAnalyzing) {
-      setState(() {
-        _analyzeResult = "100% 蜂蜜";
-      });
+      // 使用延遲確保 API 回應已經處理完成
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (mounted) {
+        setState(() {
+          // 只設定分析完成狀態，具體的 prediction 由 AnalyzeResultPanel 處理
+          _analyzeResult = "分析完成";
+        });
+      }
     } else if (controller.isCancelled) {
-      // 如果被取消，清除任何現有的分析結果
-      setState(() {
-        _analyzeResult = null;
-      });
+      if (mounted) {
+        setState(() {
+          _analyzeResult = null;
+        });
+      }
     }
   }
 
@@ -176,140 +189,160 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
   // 新增：選擇輸入模式
   String _inputMode = 'orderId'; // 'orderId' or 'farmName'
   final TextEditingController _farmNameController = TextEditingController();
-  final TextEditingController _applyCountController = TextEditingController(); // 新增
+  final TextEditingController _applyCountController =
+      TextEditingController(); // 新增
 
   // 新增：影片建立時間
   DateTime? _videoCreatedDate;
 
-  Future<void> _showVideoDialog(BuildContext context, VideoAnalyzeController controller) async {
+  Future<void> _showVideoDialog(
+      BuildContext context, VideoAnalyzeController controller) async {
     await showDialog(
       context: context,
       barrierColor: Colors.black.withAlpha((0.7 * 255).toInt()),
       builder: (dialogContext) {
         final screenSize = MediaQuery.of(context).size;
         return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          insetPadding: EdgeInsets.zero,
-          child: SizedBox(
-            width: screenSize.width,
-            height: screenSize.height,
-            child: Column(
-              children: [
-                // 標題列
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                  color: Colors.black.withOpacity(0.7),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "影片預覽",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                          onPressed: () {
-                            Navigator.of(dialogContext).pop();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // 內容顯示區
-                Expanded(
-                  child: Container(
-                    color: Colors.black,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            insetPadding: EdgeInsets.zero,
+            child: SizedBox(
+              width: screenSize.width,
+              height: screenSize.height,
+              child: Column(
+                children: [
+                  // 標題列
+                  Container(
                     width: double.infinity,
-                    child: Center(
-                      child: AnimatedBuilder(
-                        animation: controller,
-                        builder: (context, _) {
-                          return controller.firstFrameWithRectBytes != null
-                              ? Image.memory(controller.firstFrameWithRectBytes!, fit: BoxFit.contain)
-                              : (controller.firstFrameBytes != null
-                                  ? Image.memory(controller.firstFrameBytes!, fit: BoxFit.contain)
-                                  : const Text("請先上傳影片", style: TextStyle(color: Colors.white, fontSize: 24)));
-                        },
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
+                    color: Colors.black.withOpacity(0.7),
+                    child: SafeArea(
+                      bottom: false,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "影片預覽",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close,
+                                color: Colors.white, size: 28),
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop();
+                            },
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-                // 底部按鈕
-                SafeArea(
-                  top: false,
-                  child: Container(
-                    color: Colors.black.withOpacity(0.7),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      children: [
-                        // 調整選取框
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.crop_square, color: Colors.black),
-                            label: const Text(
-                              "調整選取框",
-                              style: TextStyle(color: Colors.black, fontSize: 14),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color.fromARGB(255, 245, 222, 149), // 鵝黃色
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () async {
-                              await controller.adjustRect(context);
-                              // 不需要手動 setState，因為使用了 AnimatedBuilder
-                            },
-                          ),
+                  // 內容顯示區
+                  Expanded(
+                    child: Container(
+                      color: Colors.black,
+                      width: double.infinity,
+                      child: Center(
+                        child: AnimatedBuilder(
+                          animation: controller,
+                          builder: (context, _) {
+                            return controller.firstFrameWithRectBytes != null
+                                ? Image.memory(
+                                    controller.firstFrameWithRectBytes!,
+                                    fit: BoxFit.contain)
+                                : (controller.firstFrameBytes != null
+                                    ? Image.memory(controller.firstFrameBytes!,
+                                        fit: BoxFit.contain)
+                                    : const Text("請先上傳影片",
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 24)));
+                          },
                         ),
-                        const SizedBox(width: 10),
-                        // 開始分析
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.play_arrow, color: Colors.black),
-                            label: const Text(
-                              "開始分析",
-                              style: TextStyle(color: Colors.black, fontSize: 14),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color.fromARGB(255, 245, 222, 149), // 鵝黃色
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () async {
-                              Navigator.of(dialogContext).pop();
-                              await _startAnalysisWithLoading(context, controller);
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
+                  // 底部按鈕
+                  SafeArea(
+                    top: false,
+                    child: Container(
+                      color: Colors.black.withOpacity(0.7),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: [
+                          // 調整選取框
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.crop_square,
+                                  color: Colors.black),
+                              label: const Text(
+                                "調整選取框",
+                                style: TextStyle(
+                                    color: Colors.black, fontSize: 14),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    Color.fromARGB(255, 245, 222, 149), // 鵝黃色
+                                foregroundColor: Colors.black,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () async {
+                                await controller.adjustRect(context);
+                                // 不需要手動 setState，因為使用了 AnimatedBuilder
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          // 開始分析
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.play_arrow,
+                                  color: Colors.black),
+                              label: const Text(
+                                "開始分析",
+                                style: TextStyle(
+                                    color: Colors.black, fontSize: 14),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    Color.fromARGB(255, 245, 222, 149), // 鵝黃色
+                                foregroundColor: Colors.black,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () async {
+                                Navigator.of(dialogContext).pop();
+                                await _startAnalysisWithLoading(
+                                    context, controller);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ));
       },
     );
   }
 
   // 新增：選擇日期時間的方法
-  Future<void> _selectDateTime(BuildContext context, VideoAnalyzeController controller) async {
+  Future<void> _selectDateTime(
+      BuildContext context, VideoAnalyzeController controller) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: _videoCreatedDate ?? DateTime.now(),
@@ -317,13 +350,14 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
       lastDate: DateTime.now(),
       locale: const Locale('zh', 'TW'),
     );
-    
+
     if (pickedDate != null) {
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
-        initialTime: TimeOfDay.fromDateTime(_videoCreatedDate ?? DateTime.now()),
+        initialTime:
+            TimeOfDay.fromDateTime(_videoCreatedDate ?? DateTime.now()),
       );
-      
+
       if (pickedTime != null) {
         final DateTime finalDateTime = DateTime(
           pickedDate.year,
@@ -332,7 +366,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
           pickedTime.hour,
           pickedTime.minute,
         );
-        
+
         setState(() {
           _videoCreatedDate = finalDateTime;
         });
@@ -365,7 +399,7 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
               gradient: LinearGradient(
                 colors: [
                   Color.fromARGB(255, 255, 235, 180), // 更淺的米色
-                  Color.fromARGB(255, 200, 150, 70),  // 更深的鵝黃色
+                  Color.fromARGB(255, 200, 150, 70), // 更深的鵝黃色
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -383,7 +417,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                        icon:
+                            const Icon(Icons.arrow_back, color: Colors.black87),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 8),
@@ -396,7 +431,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                           letterSpacing: 4,
                           shadows: [
                             Shadow(
-                              color: Color.fromARGB(255, 238, 218, 145), // 鵝黃色陰影
+                              color:
+                                  Color.fromARGB(255, 238, 218, 145), // 鵝黃色陰影
                               offset: Offset(0, 2),
                               blurRadius: 8,
                             ),
@@ -409,7 +445,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                 const SizedBox(height: 8),
                 // ===== 上傳影片按鈕（固定在上方）=====
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 8),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.04, vertical: 8),
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -419,7 +456,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                         style: TextStyle(color: Colors.black, fontSize: 16),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color.fromARGB(255, 245, 222, 149), // 鵝黃色
+                        backgroundColor:
+                            Color.fromARGB(255, 245, 222, 149), // 鵝黃色
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -428,21 +466,27 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                       ),
                       onPressed: () async {
                         // 檢查是否選擇了蜂蜜種類
-                        if (_selectedHoneyType == null || _selectedHoneyType!.isEmpty) {
+                        if (_selectedHoneyType == null ||
+                            _selectedHoneyType!.isEmpty) {
                           _showLogDialog(context, "請選擇蜂蜜種類");
                           return;
                         }
-                        
+
                         // 檢查是否選擇了影片建立時間
                         if (_videoCreatedDate == null) {
                           _showLogDialog(context, "請選擇影片建立時間");
                           return;
                         }
-                        
+
+                        // 重置分析結果
+                        setState(() {
+                          _analyzeResult = null;
+                        });
+
                         // 同步蜂蜜種類和影片建立時間到控制器
                         controller.setHoneyType(_selectedHoneyType);
                         controller.setVideoCreatedDate(_videoCreatedDate);
-                        
+
                         await controller.pickVideo();
                         if (controller.firstFrameBytes != null) {
                           await _showVideoDialog(context, controller);
@@ -469,7 +513,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             ),
                             color: Color.fromARGB(255, 242, 241, 241), // 米色
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 12),
                               child: Column(
                                 children: [
                                   // 蜂蜜種類
@@ -477,27 +522,36 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            const Text("蜂蜜種類", style: TextStyle(fontWeight: FontWeight.bold)),
+                                            const Text("蜂蜜種類",
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold)),
                                             const SizedBox(height: 4),
                                             DropdownButtonFormField<String>(
                                               value: _selectedHoneyType,
                                               items: _honeyTypes
-                                                  .map((type) => DropdownMenuItem(
+                                                  .map((type) =>
+                                                      DropdownMenuItem(
                                                         value: type,
                                                         child: Text(type),
                                                       ))
                                                   .toList(),
                                               onChanged: (val) {
-                                                setState(() => _selectedHoneyType = val);
+                                                setState(() =>
+                                                    _selectedHoneyType = val);
                                                 // 立即同步到控制器
                                                 controller.setHoneyType(val);
                                               },
                                               decoration: const InputDecoration(
                                                 border: OutlineInputBorder(),
                                                 isDense: true,
-                                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 8),
                                               ),
                                               hint: const Text("請選擇"),
                                             ),
@@ -509,31 +563,43 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                                   const SizedBox(height: 16),
                                   // 影片建立時間選擇
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Text("影片建立時間", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      const Text("影片建立時間",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
                                       const SizedBox(height: 4),
                                       InkWell(
-                                        onTap: () => _selectDateTime(context, controller),
+                                        onTap: () => _selectDateTime(
+                                            context, controller),
                                         child: Container(
                                           width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 16),
                                           decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.grey),
-                                            borderRadius: BorderRadius.circular(4),
+                                            border:
+                                                Border.all(color: Colors.grey),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                           child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
                                             children: [
                                               Text(
                                                 _videoCreatedDate != null
                                                     ? "${_videoCreatedDate!.year}/${_videoCreatedDate!.month.toString().padLeft(2, '0')}/${_videoCreatedDate!.day.toString().padLeft(2, '0')} ${_videoCreatedDate!.hour.toString().padLeft(2, '0')}:${_videoCreatedDate!.minute.toString().padLeft(2, '0')}"
                                                     : "請選擇影片建立時間",
                                                 style: TextStyle(
-                                                  color: _videoCreatedDate != null ? Colors.black : Colors.grey[600],
+                                                  color:
+                                                      _videoCreatedDate != null
+                                                          ? Colors.black
+                                                          : Colors.grey[600],
                                                 ),
                                               ),
-                                              Icon(Icons.calendar_today, color: Colors.grey[600]),
+                                              Icon(Icons.calendar_today,
+                                                  color: Colors.grey[600]),
                                             ],
                                           ),
                                         ),
@@ -554,9 +620,12 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             orderIdController: _orderIdController,
                             farmNameController: _farmNameController,
                             applyCountController: _applyCountController,
-                            onInputModeChanged: (mode) => setState(() => _inputMode = mode),
+                            onInputModeChanged: (mode) =>
+                                setState(() => _inputMode = mode),
                             controller: controller,
                             honeyType: _selectedHoneyType ?? '',
+                            apiResponse:
+                                controller.analysisResult, // 新增：傳遞 API 回應
                           ),
                         if (_analyzeResult == null)
                           const SizedBox(
@@ -565,7 +634,8 @@ class _VideoAnalyzeViewState extends State<_VideoAnalyzeView> {
                             child: Center(
                               child: Text(
                                 "請先上傳影片並分析",
-                                style: TextStyle(fontSize: 32, color: Colors.black54),
+                                style: TextStyle(
+                                    fontSize: 32, color: Colors.black54),
                               ),
                             ),
                           ),

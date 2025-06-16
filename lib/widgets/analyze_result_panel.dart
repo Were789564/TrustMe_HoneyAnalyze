@@ -11,8 +11,9 @@ class AnalyzeResultPanel extends StatelessWidget {
   final TextEditingController applyCountController; // 改為參數
   final VideoAnalyzeController controller;
   final String honeyType;
+  final Map<String, dynamic>? apiResponse; // 新增：API 回應資料
 
-  AnalyzeResultPanel({
+  const AnalyzeResultPanel({
     super.key,
     required this.analyzeResult,
     required this.inputMode,
@@ -22,6 +23,7 @@ class AnalyzeResultPanel extends StatelessWidget {
     required this.applyCountController, // 改為必要參數
     required this.controller,
     required this.honeyType,
+    this.apiResponse,
   });
 
   void _showErrorDialog(BuildContext context, String msg) {
@@ -41,8 +43,20 @@ class AnalyzeResultPanel extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final double cardHorizontalPadding = screenWidth * 0.04;
 
+    // 從 API 回應中解析 prediction 和 confidence
+    String displayResult = "100% 蜂蜜"; // 預設值
+    double? confidence;
+    
+    if (apiResponse != null && apiResponse!['result'] != null) {
+      final result = apiResponse!['result'];
+      final prediction = result['prediction'] ?? 100;
+      displayResult = "$prediction% 蜂蜜";
+      confidence = result['confidence'] as double?;
+    }
+
     return Column(
       children: [
+        // 分析結果卡片
         Padding(
           padding: EdgeInsets.symmetric(
               horizontal: cardHorizontalPadding, vertical: 16),
@@ -53,7 +67,7 @@ class AnalyzeResultPanel extends StatelessWidget {
             ),
             color: Colors.yellow[100],
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 84),
+              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 100),
               child: Column(
                 children: [
                   const Text(
@@ -67,7 +81,7 @@ class AnalyzeResultPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    analyzeResult,
+                    displayResult,
                     style: const TextStyle(
                       fontSize: 35,
                       fontWeight: FontWeight.w900,
@@ -81,11 +95,25 @@ class AnalyzeResultPanel extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // 顯示信心度
+                  if (confidence != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      "信心度 : ${(confidence * 100).toStringAsFixed(1)}%",
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
+
+        // 原有的輸入區塊
         Padding(
           padding: EdgeInsets.symmetric(
               horizontal: cardHorizontalPadding, vertical: 16),
@@ -202,18 +230,29 @@ class AnalyzeResultPanel extends StatelessWidget {
                       final apirayName =
                           inputMode == 'farmName' ? inputValue : null;
 
+                      // 從 API 回應中取得 prediction 和 confidence
+                      int prediction = 100; // 預設值
+                      double confidence = 0.0; // 預設值
+                      if (apiResponse != null && apiResponse!['result'] != null) {
+                        final result = apiResponse!['result'];
+                        prediction = result['prediction'] ?? 100;
+                        confidence = (result['confidence'] as num?)?.toDouble() ?? 0.0;
+                      }
+
                       final success = await VideoAnalyzeController.submitLabel(
                         applyId: inputMode == 'orderId' ? applyId : 0,
                         needLabel: needLabel,
                         honeyType: honeyType,
                         apirayName: apirayName,
+                        prediction: prediction, // 新增 prediction 參數
+                        confidence: confidence, // 新增 confidence 參數
                       );
                       showDialog(
                         context: context,
                         builder: (context) => CustomDialog(
                           title: success ? "成功" : "失敗",
                           content: success
-                              ? "• ${inputMode == 'orderId' ? '檢測單編號' : '蜂場名稱'}: $inputValue\n• 申請張數: $applyCountValue"
+                              ? "• ${inputMode == 'orderId' ? '檢測單編號' : '蜂場名稱'}: $inputValue\n• 申請張數: $applyCountValue\n• 預測結果: $prediction% 蜂蜜\n• 信心度: ${(confidence * 100).toStringAsFixed(1)}%"
                               : "上傳失敗，請稍後再試",
                           onClose: () => Navigator.of(context).pop(),
                         ),

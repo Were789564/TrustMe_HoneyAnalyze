@@ -29,14 +29,18 @@ class VideoAnalyzeController extends ChangeNotifier {
   bool isAnalyzing = false;
   bool _disposed = false;
   bool _cancelled = false;
-  String? selectedHoneyType; // 新增蜂蜜種類選擇
+  String? selectedHoneyType;
   DateTime? videoCreatedDate;
+  Map<String, dynamic>? analysisResult;
+
 
   static final _storage = const FlutterSecureStorage();
 
   /// 選擇影片檔案並擷取第一幀
   Future<void> pickVideo() async {
     rgbLog = "";
+    // 清除之前的分析結果
+    analysisResult = null;
     FilePickerResult? result =
         await FilePicker.platform.pickFiles(type: FileType.video);
     if (result != null) {
@@ -382,44 +386,49 @@ class VideoAnalyzeController extends ChangeNotifier {
     rgbLog += "\n";
 
     if (count > 0) {
-      final avgR = sumR / count; // 移除小數位數限制
-      final avgG = sumG / count; // 移除小數位數限制
-      final avgB = sumB / count; // 移除小數位數限制
+      final avgR = sumR / count;
+      final avgG = sumG / count;
+      final avgB = sumB / count;
       rgbLog +=
           "=== 整段影片平均值 ===\n整段影片 ROI 平均 RGB: R=$avgR, G=$avgG, B=$avgB (共 $count 幀，每秒取樣)\n";
 
-      // 分析完成後發送資料到後端
-      final success = await _submitAnalysisData(
+      // 分析完成後發送資料到後端並接收回應
+      final apiResponse = await _submitAnalysisData(
         secondBySecondData: secondBySecondData,
-        averageR: avgR, // 保持原始精確度
-        averageG: avgG, // 保持原始精確度
-        averageB: avgB, // 保持原始精確度
+        averageR: avgR,
+        averageG: avgG,
+        averageB: avgB,
         totalFrames: count,
         honeyType: selectedHoneyType,
         videoCreatedDate: videoCreatedDate,
       );
 
-      if (success) {
+      if (apiResponse != null) {
+        analysisResult = apiResponse; // 儲存 API 回應
         rgbLog += "分析資料已成功上傳\n";
+        print("API Response: $apiResponse"); // 除錯用
+        safeNotifyListeners(); // 確保通知 UI 更新
       } else {
+        analysisResult = null;
         rgbLog += "分析資料上傳失敗\n";
+        safeNotifyListeners(); // 確保通知 UI 更新
       }
     } else {
       rgbLog += "無法分析任何幀，請確認選取區域正確。\n";
+      analysisResult = null; // 清空分析結果
     }
 
-    //print(rgbLog);
     progress = null;
     isAnalyzing = false;
-    safeNotifyListeners();
+    safeNotifyListeners(); // 最終通知
   }
 
   /// 將分析資料發送到後端
-  static Future<bool> _submitAnalysisData({
+  static Future<Map<String, dynamic>?> _submitAnalysisData({
     required List<Map<String, dynamic>> secondBySecondData,
-    required double averageR, // 改為 double
-    required double averageG, // 改為 double
-    required double averageB, // 改為 double
+    required double averageR,
+    required double averageG,
+    required double averageB,
     required int totalFrames,
     String? honeyType,
     DateTime? videoCreatedDate,
@@ -452,12 +461,16 @@ class VideoAnalyzeController extends ChangeNotifier {
 
       print("analyze_honey response: ${response.statusCode}");
       print("analyze_honey body: ${response.body}");
-      print("Sent video_created_date: ${videoCreatedDate?.toIso8601String()}"); // 新增日誌
+      print("Sent video_created_date: ${videoCreatedDate?.toIso8601String()}");
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        return responseData; // 回傳完整的 API 回應
+      }
+      return null;
     } catch (e) {
       print("analyze_honey error: $e");
-      return false;
+      return null;
     }
   }
 
@@ -599,6 +612,8 @@ class VideoAnalyzeController extends ChangeNotifier {
     int? needLabel,
     String? honeyType,
     String? apirayName,
+    int? prediction, // 新增 prediction 參數
+    double? confidence, // 新增 confidence 參數
   }) async {
     final url = Uri.parse(ApiConstants.submitLabelEndpoint);
     // 從 secure storage 取得 account
@@ -609,6 +624,7 @@ class VideoAnalyzeController extends ChangeNotifier {
       "honey_type": honeyType ?? "",
       "account": account,
       "apiray_name": apirayName ?? "",
+      "result": prediction ?? 0.0,
     };
     print("submit_label body: $body");
     // 若 apiray_name 有值，apply_id 必須為 0；若 apply_id 有值，apiray_name 必須為空
