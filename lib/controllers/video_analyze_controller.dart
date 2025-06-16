@@ -327,15 +327,15 @@ class VideoAnalyzeController extends ChangeNotifier {
       final roi = processedFrame.region(rect);
       final cv.Scalar m = cv.mean(roi);
 
-      final currentR = m.val3.round();
-      final currentG = m.val2.round();
-      final currentB = m.val1.round();
+      final currentR = m.val3; // 保持原始浮點數
+      final currentG = m.val2; // 保持原始浮點數
+      final currentB = m.val1; // 保持原始浮點數
 
       secondBySecondData.add({
         "second": secondCount + 1,
-        "r": currentR,
-        "g": currentG,
-        "b": currentB,
+        "r": currentR, // 移除小數位數限制
+        "g": currentG, // 移除小數位數限制
+        "b": currentB, // 移除小數位數限制
       });
 
       sumB += m.val1;
@@ -382,18 +382,18 @@ class VideoAnalyzeController extends ChangeNotifier {
     rgbLog += "\n";
 
     if (count > 0) {
-      final avgR = (sumR / count).round();
-      final avgG = (sumG / count).round();
-      final avgB = (sumB / count).round();
+      final avgR = sumR / count; // 移除小數位數限制
+      final avgG = sumG / count; // 移除小數位數限制
+      final avgB = sumB / count; // 移除小數位數限制
       rgbLog +=
           "=== 整段影片平均值 ===\n整段影片 ROI 平均 RGB: R=$avgR, G=$avgG, B=$avgB (共 $count 幀，每秒取樣)\n";
 
       // 分析完成後發送資料到後端
       final success = await _submitAnalysisData(
         secondBySecondData: secondBySecondData,
-        averageR: avgR,
-        averageG: avgG,
-        averageB: avgB,
+        averageR: avgR, // 保持原始精確度
+        averageG: avgG, // 保持原始精確度
+        averageB: avgB, // 保持原始精確度
         totalFrames: count,
         honeyType: selectedHoneyType,
         videoCreatedDate: videoCreatedDate,
@@ -417,9 +417,9 @@ class VideoAnalyzeController extends ChangeNotifier {
   /// 將分析資料發送到後端
   static Future<bool> _submitAnalysisData({
     required List<Map<String, dynamic>> secondBySecondData,
-    required int averageR,
-    required int averageG,
-    required int averageB,
+    required double averageR, // 改為 double
+    required double averageG, // 改為 double
+    required double averageB, // 改為 double
     required int totalFrames,
     String? honeyType,
     DateTime? videoCreatedDate,
